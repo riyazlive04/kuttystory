@@ -19,6 +19,10 @@ export interface WizardState {
   language: 'ENGLISH' | 'TAMIL' | 'BILINGUAL';
   dedicationMessage: string;
   bookId: string | null;
+  // Lead / shipping contact, collected upfront in the wizard.
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
 }
 
 /** Generic pagination parameters used across list endpoints. */

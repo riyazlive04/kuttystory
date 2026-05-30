@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { childProfileSchema, type ChildProfile } from '@kutty-story/shared';
@@ -32,13 +32,34 @@ export function Step2Child({ wizard, onUpdate, onNext, onBack }: Step2Props) {
     },
   });
 
+  // Contact / shipping details, collected upfront (not part of the child zod
+  // form). Reused to send the preview, for sales follow-up, and at checkout.
+  const [contact, setContact] = useState({
+    name: wizard.contactName ?? '',
+    phone: wizard.contactPhone ?? '',
+    email: wizard.contactEmail ?? '',
+  });
+  const [contactError, setContactError] = useState<string | null>(null);
+  const contactValid =
+    contact.name.trim().length >= 2 &&
+    contact.phone.replace(/\D/g, '').length >= 10;
+
   const onSubmit = (data: ChildProfile) => {
+    if (!contactValid) {
+      setContactError(
+        'Please enter your name and a valid phone number so we can send your preview.',
+      );
+      return;
+    }
     onUpdate({
       childProfile: {
         ...data,
         skinTone: wizard.childProfile?.skinTone,
         hairColor: wizard.childProfile?.hairColor,
       },
+      contactName: contact.name.trim(),
+      contactPhone: contact.phone.trim(),
+      contactEmail: contact.email.trim(),
     });
     onNext();
   };
@@ -159,6 +180,61 @@ export function Step2Child({ wizard, onUpdate, onNext, onBack }: Step2Props) {
               My child wears glasses
             </span>
           </label>
+        </div>
+
+        {/* Contact / shipping details (collected upfront) */}
+        <div className="border-t border-border pt-6">
+          <h3 className="text-sm font-semibold mb-1">Your contact details</h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            So we can send your preview and help with your order.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1.5">
+                Your name <span className="text-destructive">*</span>
+              </label>
+              <Input
+                value={contact.name}
+                onChange={(e) =>
+                  setContact((c) => ({ ...c, name: e.target.value }))
+                }
+                placeholder="e.g., Priya Sharma"
+                className="rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1.5">
+                Phone (WhatsApp) <span className="text-destructive">*</span>
+              </label>
+              <Input
+                type="tel"
+                inputMode="tel"
+                value={contact.phone}
+                onChange={(e) =>
+                  setContact((c) => ({ ...c, phone: e.target.value }))
+                }
+                placeholder="e.g., 98765 43210"
+                className="rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-1.5">
+                Email <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <Input
+                type="email"
+                value={contact.email}
+                onChange={(e) =>
+                  setContact((c) => ({ ...c, email: e.target.value }))
+                }
+                placeholder="you@example.com"
+                className="rounded-lg"
+              />
+            </div>
+            {contactError && !contactValid && (
+              <p className="text-xs text-destructive">{contactError}</p>
+            )}
+          </div>
         </div>
 
         {/* Navigation */}

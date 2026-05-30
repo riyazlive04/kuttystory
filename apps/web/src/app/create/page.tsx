@@ -7,20 +7,20 @@ import type { WizardState } from '@kutty-story/shared';
 import { Step1Story } from './steps/step-1-story';
 import { Step2Child } from './steps/step-2-child';
 import { Step3Photos } from './steps/step-3-photos';
-import { Step4Details } from './steps/step-4-details';
-import { Step5Language } from './steps/step-5-language';
 import { Step6Preview } from './steps/step-6-preview';
 
 const STORAGE_KEY = 'kutty-story-wizard';
 
+// Personalization Details + Language steps were removed (English-only for now),
+// so the wizard is 4 steps. Preview is the final step.
 const steps = [
   { number: 1, label: 'Story' },
   { number: 2, label: 'Child' },
   { number: 3, label: 'Photos' },
-  { number: 4, label: 'Details' },
-  { number: 5, label: 'Language' },
-  { number: 6, label: 'Preview' },
+  { number: 4, label: 'Preview' },
 ];
+
+const LAST_STEP = steps.length; // 4
 
 const defaultWizardState: WizardState = {
   currentStep: 1,
@@ -30,11 +30,17 @@ const defaultWizardState: WizardState = {
   language: 'ENGLISH',
   dedicationMessage: '',
   bookId: null,
+  contactName: '',
+  contactPhone: '',
+  contactEmail: '',
 };
 
 export default function CreatePage() {
   const [wizard, setWizard] = useState<WizardState>(defaultWizardState);
   const [isHydrated, setIsHydrated] = useState(false);
+  // Furthest step the user has reached — lets them jump back AND forward to any
+  // step they've already completed (not just steps <= the current one).
+  const [maxStep, setMaxStep] = useState(1);
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -42,7 +48,13 @@ export default function CreatePage() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as WizardState;
-        setWizard(parsed);
+        // Clamp any previously-saved step to the new last step (the wizard
+        // shrank from 6 to 4 steps).
+        const clampedStep = Math.min(
+          parsed.currentStep || 1,
+          LAST_STEP,
+        ) as WizardState['currentStep'];
+        setWizard({ ...parsed, currentStep: clampedStep });
       }
     } catch {
       // Ignore parse errors
@@ -57,6 +69,30 @@ export default function CreatePage() {
     }
   }, [wizard, isHydrated]);
 
+  // Remember the furthest step reached (so back-then-forward navigation works).
+  useEffect(() => {
+    setMaxStep((m) => Math.max(m, wizard.currentStep));
+  }, [wizard.currentStep]);
+
+  // If the user picked a story upfront (e.g. /create?story=beach-adventure from
+  // a story page), resolve the slug to its id and pre-select it so the choice
+  // is retained all the way through preview generation.
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get('story');
+    if (!slug) return;
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+    fetch(`${apiUrl}/stories/${slug}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const id = data?.data?.id as string | undefined;
+        if (id) {
+          setWizard((prev) => ({ ...prev, storyTemplateId: id }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const updateWizard = useCallback((updates: Partial<WizardState>) => {
     setWizard((prev) => ({ ...prev, ...updates }));
   }, []);
@@ -68,7 +104,7 @@ export default function CreatePage() {
 
   const nextStep = useCallback(() => {
     setWizard((prev) => {
-      const next = Math.min(prev.currentStep + 1, 6) as WizardState['currentStep'];
+      const next = Math.min(prev.currentStep + 1, LAST_STEP) as WizardState['currentStep'];
       return { ...prev, currentStep: next };
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -121,11 +157,11 @@ export default function CreatePage() {
                   <button
                     key={step.number}
                     onClick={() => {
-                      if (step.number <= wizard.currentStep) {
+                      if (step.number <= maxStep) {
                         goToStep(step.number as WizardState['currentStep']);
                       }
                     }}
-                    disabled={step.number > wizard.currentStep}
+                    disabled={step.number > maxStep}
                     className="relative flex flex-col items-center gap-2 z-10"
                   >
                     <div
@@ -196,22 +232,6 @@ export default function CreatePage() {
               />
             )}
             {wizard.currentStep === 4 && (
-              <Step4Details
-                wizard={wizard}
-                onUpdate={updateWizard}
-                onNext={nextStep}
-                onBack={prevStep}
-              />
-            )}
-            {wizard.currentStep === 5 && (
-              <Step5Language
-                wizard={wizard}
-                onUpdate={updateWizard}
-                onNext={nextStep}
-                onBack={prevStep}
-              />
-            )}
-            {wizard.currentStep === 6 && (
               <Step6Preview
                 wizard={wizard}
                 onUpdate={updateWizard}

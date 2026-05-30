@@ -16,6 +16,7 @@ import {
 import { formatPriceInr, PRICING } from '@kutty-story/shared';
 import { StoryCard } from '@/components/story-card';
 import { PriceCard } from '@/components/price-card';
+import { HeroShowcase } from '@/components/hero-showcase';
 
 // ─── Animation helpers ──────────────────────────────────────
 const fadeInUp = {
@@ -289,17 +290,7 @@ export default function HomePage() {
                 {/* Floating book mockup */}
                 <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-pink-100 to-purple-100 animate-float" />
                 <div className="absolute inset-4 rounded-2xl bg-white shadow-2xl overflow-hidden animate-float [animation-delay:1s]">
-                  <div className="w-full h-full bg-gradient-to-br from-pink-50 via-white to-purple-50 flex items-center justify-center">
-                    <div className="text-center p-8">
-                      <BookOpen className="h-16 w-16 text-purple-400 mx-auto mb-4" />
-                      <h3 className="font-heading text-xl font-bold text-foreground mb-2">
-                        Your Story Awaits
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        Every child deserves to be the hero
-                      </p>
-                    </div>
-                  </div>
+                  <HeroShowcase />
                 </div>
                 {/* Decorative floating elements */}
                 <div className="absolute -top-4 -right-4 h-16 w-16 rounded-2xl bg-pink-400/80 flex items-center justify-center text-white animate-float [animation-delay:2s]">

@@ -13,10 +13,12 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import {
-  MAX_PHOTOS_PER_CHILD,
   MAX_PHOTO_SIZE_BYTES,
   ALLOWED_IMAGE_MIME_TYPES,
 } from '@kutty-story/shared';
+
+// Only one photo is collected for now (single reference face).
+const MAX_PHOTOS_PER_CHILD = 1;
 import type { WizardState } from '@kutty-story/shared';
 import { Button } from '@kutty-story/ui';
 import { api, ensureGuestSession } from '@/lib/api';
@@ -220,11 +222,11 @@ export function Step3Photos({ wizard, onUpdate, onNext, onBack }: Step3Props) {
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
         <h2 className="font-heading text-2xl font-bold mb-2">
-          Upload Photos
+          Upload a Photo
         </h2>
         <p className="text-muted-foreground">
-          Upload clear, front-facing photos of your child. We need at least 1
-          photo (up to {MAX_PHOTOS_PER_CHILD}).
+          Upload one clear, front-facing photo of your child — this is the face
+          we&apos;ll use in the storybook.
         </p>
       </div>
 
@@ -247,7 +249,6 @@ export function Step3Photos({ wizard, onUpdate, onNext, onBack }: Step3Props) {
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              multiple
               className="hidden"
               onChange={(e) => {
                 if (e.target.files?.length) {
@@ -377,10 +378,10 @@ export function Step3Photos({ wizard, onUpdate, onNext, onBack }: Step3Props) {
           </p>
           <ul className="space-y-1.5">
             {[
-              'Use clear, well-lit front-facing photos',
+              'Use a clear, well-lit front-facing photo',
               'Avoid sunglasses or hats that hide the face',
-              'Multiple angles help our AI create better illustrations',
-              'Photos with a simple background work best',
+              'A sharp, in-focus face gives the best likeness',
+              'A photo with a simple background works best',
             ].map((tip) => (
               <li
                 key={tip}
@@ -409,7 +410,7 @@ export function Step3Photos({ wizard, onUpdate, onNext, onBack }: Step3Props) {
           disabled={!canProceed}
           className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-brand px-8 py-3 text-sm font-bold text-white shadow-lg shadow-purple-200 hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Next: Personalize Details
+          Next: Preview
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>

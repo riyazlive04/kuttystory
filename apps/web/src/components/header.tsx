@@ -20,6 +20,9 @@ export function Header() {
   const [authModal, setAuthModal] = useState<'login' | 'signup' | null>(null);
   const { user, logout } = useAuth();
 
+  // Auth is temporarily hidden — flip to true to re-enable Log In / Sign Up.
+  const AUTH_ENABLED = false;
+
   return (
     <>
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg">
@@ -71,7 +74,7 @@ export function Header() {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : AUTH_ENABLED ? (
               <>
                 <Button
                   variant="ghost"
@@ -87,6 +90,13 @@ export function Header() {
                   Sign Up
                 </button>
               </>
+            ) : (
+              <Link
+                href="/create"
+                className="inline-flex items-center justify-center rounded-full bg-gradient-brand px-5 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+              >
+                Create Your Book
+              </Link>
             )}
           </div>
 
@@ -147,7 +157,7 @@ export function Header() {
                       Sign Out
                     </button>
                   </>
-                ) : (
+                ) : AUTH_ENABLED ? (
                   <div className="flex flex-col gap-2">
                     <button
                       onClick={() => {
@@ -168,6 +178,14 @@ export function Header() {
                       Sign Up
                     </button>
                   </div>
+                ) : (
+                  <Link
+                    href="/create"
+                    onClick={() => setMobileOpen(false)}
+                    className="block w-full text-center rounded-full bg-gradient-brand px-5 py-2.5 text-sm font-semibold text-white"
+                  >
+                    Create Your Book
+                  </Link>
                 )}
               </div>
             </motion.div>

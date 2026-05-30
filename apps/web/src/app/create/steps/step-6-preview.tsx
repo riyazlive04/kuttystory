@@ -10,7 +10,6 @@ import {
   Camera,
   Globe,
   Palette,
-  MessageSquare,
   Lock,
 } from 'lucide-react';
 import type { WizardState, BookPreviewData } from '@kutty-story/shared';
@@ -115,9 +114,6 @@ async function pollUntilReady(
 
 export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
   const { user } = useAuth();
-  const [dedicationMessage, setDedicationMessage] = useState(
-    wizard.dedicationMessage,
-  );
   const [previewState, setPreviewState] = useState<PreviewState>('idle');
   const [previewData, setPreviewData] = useState<BookPreviewData | null>(null);
   const [fullData, setFullData] = useState<BookPreviewData | null>(null);
@@ -128,9 +124,7 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null);
   // Lead details captured before the free preview so the sales team can follow
   // up even if the visitor never signs up or orders.
-  const [contactName, setContactName] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
+  // Contact details are collected upfront (Step 2) and live in wizard state.
 
   // Resolve the selected story's slug + display title from its id.
   useEffect(() => {
@@ -161,15 +155,6 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
   }, [wizard.storyTemplateId]);
 
   const resolvedSlug = storySlug || 'abc-adventure';
-
-  const charsLeft = 200 - dedicationMessage.length;
-
-  const handleDedicationChange = (value: string) => {
-    if (value.length <= 200) {
-      setDedicationMessage(value);
-      onUpdate({ dedicationMessage: value });
-    }
-  };
 
   // Build placeholder pages from the story's sample artwork.
   const buildSamplePages = (count: number) =>
@@ -225,9 +210,9 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
       //     team can reach out even if they never sign up. Best-effort.
       try {
         await api.put('/users/me/contact', {
-          name: contactName.trim() || undefined,
-          phone: contactPhone.trim() || undefined,
-          email: contactEmail.trim() || undefined,
+          name: wizard.contactName?.trim() || undefined,
+          phone: wizard.contactPhone?.trim() || undefined,
+          email: wizard.contactEmail?.trim() || undefined,
         });
       } catch {
         // non-fatal — continue with preview generation
@@ -378,34 +363,10 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
         <h2 className="font-heading text-2xl font-bold mb-2">
-          Dedication & Preview
+          Preview Your Storybook
         </h2>
         <p className="text-muted-foreground">
-          Add a personal dedication message and generate a free preview of your
-          storybook.
-        </p>
-      </div>
-
-      {/* Dedication message */}
-      <div className="bg-white rounded-2xl border border-border p-6 shadow-sm mb-6">
-        <label className="flex items-center gap-2 text-sm font-semibold mb-3">
-          <MessageSquare className="h-4 w-4 text-purple-600" />
-          Dedication Message
-          <span className="text-muted-foreground font-normal">(optional)</span>
-        </label>
-        <textarea
-          value={dedicationMessage}
-          onChange={(e) => handleDedicationChange(e.target.value)}
-          placeholder="To my dearest Aarav, may you always find magic in every page of life..."
-          rows={4}
-          className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-        />
-        <p
-          className={`text-xs mt-1.5 ${
-            charsLeft < 20 ? 'text-destructive' : 'text-muted-foreground'
-          }`}
-        >
-          {charsLeft} characters remaining
+          Generate a free preview of your personalized storybook.
         </p>
       </div>
 
@@ -439,63 +400,9 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
             exit={{ opacity: 0 }}
             className="mb-8"
           >
-            {/* Contact details — lets us send the preview and follow up */}
-            <div className="bg-white rounded-2xl border border-border p-6 shadow-sm mb-6">
-              <h3 className="font-heading font-bold text-base mb-1">
-                Where should we send your preview?
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Enter your details to generate your free preview. We&apos;ll use
-                these to help you with your order.
-              </p>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Your name
-                  </label>
-                  <input
-                    type="text"
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                    placeholder="e.g. Priya Sharma"
-                    className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Phone (WhatsApp)
-                  </label>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    value={contactPhone}
-                    onChange={(e) => setContactPhone(e.target.value)}
-                    placeholder="e.g. 98765 43210"
-                    className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Email <span className="font-normal">(optional)</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={contactEmail}
-                    onChange={(e) => setContactEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  />
-                </div>
-              </div>
-            </div>
-
             <div className="text-center">
               <button
                 onClick={generatePreview}
-                disabled={
-                  contactName.trim().length < 2 ||
-                  contactPhone.replace(/\D/g, '').length < 10
-                }
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-brand px-10 py-4 text-base font-bold text-white shadow-lg shadow-purple-200 hover:shadow-xl hover:opacity-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Sparkles className="h-5 w-5" />
