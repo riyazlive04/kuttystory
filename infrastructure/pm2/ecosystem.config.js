@@ -9,6 +9,8 @@ module.exports = {
       cwd: '/var/www/kutty-story/apps/web',
       script: 'node_modules/.bin/next',
       args: 'start --port 3000',
+      // .bin/next is a shell wrapper (pnpm) — run it directly, not via node.
+      interpreter: 'none',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
@@ -31,6 +33,8 @@ module.exports = {
       cwd: '/var/www/kutty-story/apps/admin',
       script: 'node_modules/.bin/next',
       args: 'start --port 3001',
+      // .bin/next is a shell wrapper (pnpm) — run it directly, not via node.
+      interpreter: 'none',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,
@@ -51,8 +55,10 @@ module.exports = {
       name: 'kutty-story-api',
       cwd: '/var/www/kutty-story/apps/api',
       script: 'dist/main.js',
-      instances: 2,
-      exec_mode: 'cluster',
+      // fork (not cluster) — NestJS + a single BullMQ worker is simplest and
+      // avoids duplicate queue workers. One instance is plenty for this load.
+      instances: 1,
+      exec_mode: 'fork',
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
