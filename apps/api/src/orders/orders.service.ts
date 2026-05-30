@@ -125,7 +125,10 @@ export class OrdersService {
     });
     if (!item?.order) return;
     if (item.format !== 'PDF_DOWNLOAD') return;
-    if (item.order.status !== 'PAID') return;
+    // Payment is collected offline, so PDF orders sit at PENDING_PAYMENT rather
+    // than PAID. Deliver the PDF for any live order; only skip ones that were
+    // cancelled or refunded.
+    if (['CANCELLED', 'REFUNDED'].includes(item.order.status)) return;
 
     const addr = item.order.shippingAddress as {
       email?: string;

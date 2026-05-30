@@ -23,6 +23,11 @@ export interface WizardState {
   contactName: string;
   contactPhone: string;
   contactEmail: string;
+  // Cached preview so navigating back/forward (without changing the photo or
+  // child/story details) re-shows the already-generated pages instead of
+  // regenerating (and re-charging). previewSignature is a hash of the inputs.
+  previewSignature?: string;
+  previewPages?: Array<{ pageNumber: number; imageUrl: string }>;
 }
 
 /** Generic pagination parameters used across list endpoints. */

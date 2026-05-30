@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -39,6 +39,29 @@ export default function CheckoutPage() {
     state: '',
     pincode: '',
   });
+
+  // Prefill name / email / phone from what the visitor already entered in the
+  // create wizard (persisted in localStorage), so they don't retype it. The
+  // shipping address is collected here only when a printed book is selected.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(WIZARD_STORAGE_KEY);
+      if (!saved) return;
+      const w = JSON.parse(saved) as {
+        contactName?: string;
+        contactEmail?: string;
+        contactPhone?: string;
+      };
+      setShippingForm((prev) => ({
+        ...prev,
+        fullName: prev.fullName || w.contactName || '',
+        email: prev.email || w.contactEmail || '',
+        phone: prev.phone || w.contactPhone || '',
+      }));
+    } catch {
+      // ignore malformed wizard state
+    }
+  }, []);
 
   const handlePlaceOrder = async () => {
     // Submits the order for offline payment. Team will contact the customer.

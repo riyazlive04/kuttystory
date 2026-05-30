@@ -10,14 +10,11 @@ import {
   Camera,
   Globe,
   Palette,
-  Lock,
 } from 'lucide-react';
 import type { WizardState, BookPreviewData } from '@kutty-story/shared';
 import { Button } from '@kutty-story/ui';
 import { BookPreview } from '@/components/book-preview';
-import { AuthModal } from '@/components/auth-modal';
 import { api, ensureGuestSession } from '@/lib/api';
-import { useAuth } from '@/lib/auth-context';
 
 const FULL_BOOK_PAGE_COUNT = 28;
 const PREVIEW_PAGE_COUNT = 5;
@@ -43,6 +40,21 @@ const DISPLAY_TITLES: Record<string, string> = {
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * A stable fingerprint of everything that affects the generated preview: the
+ * story, language, the child's details, and the uploaded photo(s). If none of
+ * these change between visits, the cached preview is still valid and we re-show
+ * it instead of regenerating (and re-charging).
+ */
+function buildPreviewSignature(wizard: WizardState): string {
+  return JSON.stringify({
+    story: wizard.storyTemplateId,
+    language: wizard.language,
+    photos: wizard.photoIds,
+    child: wizard.childProfile,
+  });
+}
 
 interface GeneratedPage {
   pageNumber: number;
@@ -113,7 +125,6 @@ async function pollUntilReady(
 }
 
 export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
-  const { user } = useAuth();
   const [previewState, setPreviewState] = useState<PreviewState>('idle');
   const [previewData, setPreviewData] = useState<BookPreviewData | null>(null);
   const [fullData, setFullData] = useState<BookPreviewData | null>(null);
@@ -121,10 +132,32 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
   const [error, setError] = useState<string | null>(null);
   const [storySlug, setStorySlug] = useState<string | null>(null);
   const [storyTitle, setStoryTitle] = useState<string | null>(null);
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null);
-  // Lead details captured before the free preview so the sales team can follow
-  // up even if the visitor never signs up or orders.
   // Contact details are collected upfront (Step 2) and live in wizard state.
+
+  // Restore a previously generated preview when the visitor navigates back to
+  // this step without changing the photo or child/story details. The pages and
+  // a signature of the inputs are cached in wizard state (persisted to
+  // localStorage), so we skip regeneration entirely. Runs once on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (
+      wizard.bookId &&
+      wizard.previewPages?.length &&
+      wizard.previewSignature === buildPreviewSignature(wizard)
+    ) {
+      setPreviewData({
+        bookId: wizard.bookId,
+        storyTemplateId: wizard.storyTemplateId ?? '',
+        childName: wizard.childProfile?.name ?? 'Child',
+        language: wizard.language,
+        pages: wizard.previewPages,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+      setProgress(100);
+      setPreviewState('ready');
+    }
+  }, []);
 
   // Resolve the selected story's slug + display title from its id.
   useEffect(() => {
@@ -256,17 +289,25 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
       if (pages.length === 0) throw new Error('No pages generated');
 
       setProgress(100);
+      const previewPages = pages.map((p) => ({
+        pageNumber: p.pageNumber,
+        imageUrl: p.finalImageUrl as string,
+      }));
       setPreviewData({
         bookId,
         storyTemplateId: wizard.storyTemplateId ?? '',
         childName: wizard.childProfile?.name ?? 'Child',
         language: wizard.language,
-        pages: pages.map((p) => ({
-          pageNumber: p.pageNumber,
-          imageUrl: p.finalImageUrl as string,
-        })),
+        pages: previewPages,
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      });
+      // Cache the result so coming back to this step (without changing inputs)
+      // re-shows it instead of regenerating.
+      onUpdate({
+        bookId,
+        previewPages,
+        previewSignature: buildPreviewSignature(wizard),
       });
       setTimeout(() => setPreviewState('ready'), 400);
     } catch {
@@ -513,53 +554,22 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
               />
             </div>
 
-            {/* Gate: ordering requires an account. The full 28-page book is
-                created after the order is placed (not here), to control cost. */}
-            {user ? (
-              <div className="text-center">
-                <a
-                  href="/checkout"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-brand px-10 py-4 text-base font-bold text-white shadow-lg shadow-purple-200 hover:shadow-xl hover:opacity-95 transition-all"
-                >
-                  <Sparkles className="h-5 w-5" />
-                  Love It! Order Now
-                </a>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  We&apos;ll create all {FULL_BOOK_PAGE_COUNT} personalized pages
-                  after you order and deliver your book. Choose PDF (₹899) or
-                  printed book (₹1,299) at checkout.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-2xl border-2 border-purple-200 bg-purple-50/60 p-6 text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-brand text-white">
-                  <Lock className="h-6 w-6" />
-                </div>
-                <h4 className="font-heading font-bold text-base mb-1">
-                  Love it? Create the full book
-                </h4>
-                <p className="text-sm text-muted-foreground mb-5">
-                  Sign up free to generate all {FULL_BOOK_PAGE_COUNT}{' '}
-                  personalized pages and place your order.
-                </p>
-                <button
-                  onClick={() => setAuthMode('signup')}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-brand px-8 py-3.5 text-base font-bold text-white shadow-lg shadow-purple-200 hover:shadow-xl hover:opacity-95 transition-all"
-                >
-                  <Sparkles className="h-5 w-5" />
-                  Sign Up & Create Full Book
-                </button>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Already have an account?{' '}
-                  <button
-                    onClick={() => setAuthMode('login')}
-                    className="font-semibold text-purple-600 hover:underline"
-                  >
-                    Log in
-                  </button>
-                </p>
-              </div>
-            )}
+            {/* No sign-up required. The full 28-page book is created after the
+                order is placed (not here), to control cost. */}
+            <div className="text-center">
+              <a
+                href="/checkout"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-brand px-10 py-4 text-base font-bold text-white shadow-lg shadow-purple-200 hover:shadow-xl hover:opacity-95 transition-all"
+              >
+                <Sparkles className="h-5 w-5" />
+                Love It! Order Now
+              </a>
+              <p className="mt-3 text-xs text-muted-foreground">
+                We&apos;ll create all {FULL_BOOK_PAGE_COUNT} personalized pages
+                after you order and deliver your book. Choose PDF (₹899) or
+                printed book (₹1,299) at checkout.
+              </p>
+            </div>
           </motion.div>
         )}
 
@@ -671,12 +681,6 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
           Back
         </Button>
       </div>
-
-      <AuthModal
-        mode={authMode}
-        onClose={() => setAuthMode(null)}
-        onSwitchMode={(mode) => setAuthMode(mode)}
-      />
     </div>
   );
 }
