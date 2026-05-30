@@ -14,11 +14,12 @@ out/
 .env.*.local
 
 # Secrets & local storage (NEVER commit these)
+# Anchored to repo root so they don't match source dirs like apps/api/src/storage/
 .encryption-key
 apps/api/.encryption-key
 apps/api/storage/
-storage/
-uploads/
+/storage/
+/uploads/
 
 # IDE
 .vscode/
