@@ -1,0 +1,21 @@
+{
+  // Shared base config only. Each app/package builds with its own tsconfig.
+  // "files": [] means this config compiles no files of its own, so editors
+  // don't load the whole monorepo as one catch-all project.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "sourceMap": true,
+    "isolatedModules": true
+  },
+  "files": [],
+  "exclude": ["node_modules", "dist"]
+}

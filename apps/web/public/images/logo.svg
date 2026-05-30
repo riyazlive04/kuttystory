@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 380" fill="none">
+  <!-- Open Book -->
+  <g transform="translate(50, 140)">
+    <!-- Book spine -->
+    <ellipse cx="150" cy="160" rx="12" ry="12" fill="#7C3AED"/>
+    <!-- Left pages -->
+    <path d="M150 160 Q80 150 20 120 Q15 118 18 112 L70 40 Q75 36 82 38 L150 70 Z" fill="#F9A8D4" stroke="#E879F9" stroke-width="1"/>
+    <path d="M150 160 Q85 152 28 125 Q22 122 25 116 L75 45 Q80 42 86 44 L150 74 Z" fill="#FECDD3" stroke="#F9A8D4" stroke-width="0.5"/>
+    <path d="M150 160 Q90 155 35 130 Q30 128 32 122 L80 52 Q84 48 90 50 L150 78 Z" fill="#FFF1F2" stroke="#FECDD3" stroke-width="0.5"/>
+    <!-- Right pages -->
+    <path d="M150 160 Q220 150 280 120 Q285 118 282 112 L230 40 Q225 36 218 38 L150 70 Z" fill="#F9A8D4" stroke="#E879F9" stroke-width="1"/>
+    <path d="M150 160 Q215 152 272 125 Q278 122 275 116 L225 45 Q220 42 214 44 L150 74 Z" fill="#FECDD3" stroke="#F9A8D4" stroke-width="0.5"/>
+    <path d="M150 160 Q210 155 265 130 Q270 128 268 122 L220 52 Q216 48 210 50 L150 78 Z" fill="#FFF1F2" stroke="#FECDD3" stroke-width="0.5"/>
+    <!-- Book cover bottom -->
+    <path d="M10 125 Q80 158 150 165 Q220 158 290 125" stroke="#7C3AED" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Hand with heart (Korean heart gesture) -->
+  <g transform="translate(140, 100)">
+    <!-- Thumb -->
+    <path d="M70 120 Q68 95 62 75 Q58 60 55 50 Q52 42 56 38 Q60 34 65 38 Q70 42 72 55 L75 75" fill="#FDDCB5" stroke="#E8C9A0" stroke-width="1.5"/>
+    <!-- Index finger -->
+    <path d="M75 75 Q76 55 74 40 Q72 28 68 18 Q65 10 70 8 Q76 6 80 15 Q84 28 84 40 L82 75" fill="#FDDCB5" stroke="#E8C9A0" stroke-width="1.5"/>
+    <!-- Palm area -->
+    <path d="M62 75 Q58 85 60 100 Q62 110 68 118 Q72 122 78 120 Q84 116 86 108 Q88 95 85 80 Q83 75 75 75 L62 75 Z" fill="#FDDCB5" stroke="#E8C9A0" stroke-width="1"/>
+    <!-- Other fingers curled -->
+    <path d="M60 100 Q52 95 48 88 Q45 82 48 78 Q52 76 56 80 Q58 85 60 92" fill="#FDDCB5" stroke="#E8C9A0" stroke-width="1"/>
+    <path d="M58 95 Q50 90 46 82 Q43 76 46 73 Q50 71 53 75 Q55 80 57 86" fill="#FDDCB5" stroke="#E8C9A0" stroke-width="1"/>
+  </g>
+
+  <!-- Heart -->
+  <path d="M200 55 Q200 35 215 30 Q230 25 235 40 Q240 25 255 30 Q270 35 270 55 Q270 75 235 95 Q200 75 200 55Z" fill="#DDA0DD" opacity="0.9"/>
+
+  <!-- Sparkle stars -->
+  <g fill="#C084FC" opacity="0.8">
+    <!-- Left sparkles -->
+    <path d="M95 95 L98 90 L101 95 L98 100 Z"/>
+    <path d="M75 130 L78 124 L81 130 L78 136 Z"/>
+    <path d="M110 145 L113 140 L116 145 L113 150 Z"/>
+    <path d="M60 170 L62 166 L64 170 L62 174 Z"/>
+    <!-- Right sparkles -->
+    <path d="M305 95 L308 90 L311 95 L308 100 Z"/>
+    <path d="M325 130 L328 124 L331 130 L328 136 Z"/>
+    <path d="M290 145 L293 140 L296 145 L293 150 Z"/>
+    <path d="M340 170 L342 166 L344 170 L342 174 Z"/>
+    <!-- Center sparkles -->
+    <path d="M170 120 L172 116 L174 120 L172 124 Z"/>
+    <path d="M240 115 L242 111 L244 115 L242 119 Z"/>
+  </g>
+
+  <!-- Dashed arc lines -->
+  <path d="M100 85 Q150 30 200 55" stroke="#C084FC" stroke-width="1.5" stroke-dasharray="5,5" fill="none" opacity="0.6"/>
+  <path d="M300 85 Q250 30 200 55" stroke="#C084FC" stroke-width="1.5" stroke-dasharray="5,5" fill="none" opacity="0.6"/>
+
+  <!-- Text: "Kutty Story" -->
+  <g transform="translate(200, 345)">
+    <!-- Text outline/stroke effect -->
+    <text text-anchor="middle" font-family="'Comic Sans MS', 'Nunito', cursive" font-size="52" font-weight="800" fill="#E879F9" stroke="#C084FC" stroke-width="3" stroke-linejoin="round" paint-order="stroke">Kutty Story</text>
+    <!-- Text fill -->
+    <text text-anchor="middle" font-family="'Comic Sans MS', 'Nunito', cursive" font-size="52" font-weight="800" fill="#E879F9">Kutty Story</text>
+  </g>
+</svg>

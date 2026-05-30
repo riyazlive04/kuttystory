@@ -1,0 +1,388 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// === ENUMS ===
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum Gender {
+  BOY
+  GIRL
+  PREFER_NOT_TO_SAY
+}
+
+enum StoryTheme {
+  ADVENTURE
+  LEARNING
+  PROFESSIONS
+  FESTIVALS
+  FAMILY_LOVE
+  IMAGINATION
+  BEDTIME
+}
+
+enum Language {
+  ENGLISH
+  TAMIL
+  BILINGUAL
+}
+
+enum BookStatus {
+  DRAFT
+  GENERATING_PREVIEW
+  PREVIEW_READY
+  GENERATING_FULL
+  PENDING_APPROVAL
+  APPROVED
+  PRINTING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PageStatus {
+  PENDING
+  GENERATING
+  READY
+  REGEN_REQUESTED
+  FAILED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  AWAITING_APPROVAL
+  IN_PRODUCTION
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum BookFormat {
+  PDF_DOWNLOAD
+  PRINTED_BOOK
+}
+
+enum PrintJobStatus {
+  QUEUED
+  PDF_GENERATING
+  PDF_READY
+  PRINTING
+  BINDING
+  QC_CHECK
+  READY_TO_SHIP
+  FAILED
+}
+
+enum ReferralStatus {
+  PENDING
+  REDEEMED
+  EXPIRED
+}
+
+// === USERS & AUTH ===
+
+model User {
+  id                String    @id @default(cuid())
+  // Nullable so anonymous "guest" shoppers can own books before they sign up.
+  // Postgres treats NULLs as distinct under a unique index, so many guests coexist.
+  email             String?   @unique
+  emailVerified     DateTime?
+  name              String?
+  phone             String?
+  passwordHash      String?
+  googleId          String?   @unique
+  isGuest           Boolean   @default(false)
+  role              UserRole  @default(CUSTOMER)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sessions          Session[]
+  orders            Order[]
+  childProfiles     ChildProfile[]
+  reviews           Review[]
+  referralsGiven    Referral[] @relation("Referrer")
+  referralsReceived Referral[] @relation("Referee")
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// === CHILD PROFILES ===
+
+model ChildProfile {
+  id                 String   @id @default(cuid())
+  userId             String
+  name               String
+  nickname           String?
+  gender             Gender
+  ageYears           Int
+  skinTone           String?
+  hairColor          String?
+  hasGlasses         Boolean  @default(false)
+  referencePhotoUrls String[]
+  faceEmbedding      Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  books              Book[]
+
+  @@map("child_profiles")
+}
+
+// === STORY CATALOG ===
+
+model StoryTemplate {
+  id               String     @id @default(cuid())
+  slug             String     @unique
+  title            String
+  titleTamil       String?
+  description      String
+  descriptionTamil String?
+  coverImageUrl    String?
+  ageMin           Int
+  ageMax           Int
+  theme            StoryTheme
+  pageCount        Int        @default(28)
+  isActive         Boolean    @default(false)
+  isFeatured       Boolean    @default(false)
+  basePriceInr     Int
+  premiumPriceInr  Int
+  giftPriceInr     Int
+  artStyle         String
+  sortOrder        Int        @default(0)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  pages            StoryPageTemplate[]
+  books            Book[]
+
+  @@map("story_templates")
+}
+
+model StoryPageTemplate {
+  id                 String  @id @default(cuid())
+  storyTemplateId    String
+  pageNumber         Int
+  textEnglish        String
+  textTamil          String?
+  illustrationPrompt String
+  negativePrompt     String?
+  styleTokens        Json
+  isCoverPage        Boolean @default(false)
+  isPreviewPage      Boolean @default(false)
+  createdAt          DateTime @default(now())
+  story              StoryTemplate @relation(fields: [storyTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([storyTemplateId, pageNumber])
+  @@map("story_page_templates")
+}
+
+// === BOOK INSTANCES ===
+
+model Book {
+  id                     String     @id @default(cuid())
+  userId                 String
+  childProfileId         String
+  storyTemplateId        String
+  language               Language   @default(ENGLISH)
+  status                 BookStatus @default(DRAFT)
+  previewGeneratedAt     DateTime?
+  fullGeneratedAt        DateTime?
+  approvedAt             DateTime?
+  printedAt              DateTime?
+  totalImageGenCostCents Int        @default(0)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  child     ChildProfile  @relation(fields: [childProfileId], references: [id])
+  story     StoryTemplate @relation(fields: [storyTemplateId], references: [id])
+  pages     BookPage[]
+  orderItem OrderItem?
+
+  @@map("books")
+}
+
+model BookPage {
+  id                 String     @id @default(cuid())
+  bookId             String
+  pageNumber         Int
+  finalImageUrl      String?
+  generationAttempts Json[]
+  status             PageStatus @default(PENDING)
+  generationCostCents Int?
+  generatedAt        DateTime?
+  book               Book       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, pageNumber])
+  @@map("book_pages")
+}
+
+// === ORDERS ===
+
+model Order {
+  id                String      @id @default(cuid())
+  orderNumber       String      @unique
+  userId            String
+  status            OrderStatus @default(PENDING_PAYMENT)
+  subtotalInr       Int
+  discountInr       Int         @default(0)
+  shippingInr       Int         @default(0)
+  taxInr            Int         @default(0)
+  totalInr          Int
+  shippingAddress   Json
+  billingAddress    Json?
+  razorpayOrderId   String?     @unique
+  razorpayPaymentId String?     @unique
+  paidAt            DateTime?
+  shippedAt         DateTime?
+  trackingNumber    String?
+  courier           String?
+  deliveredAt       DateTime?
+  notes             String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  user              User        @relation(fields: [userId], references: [id])
+  items             OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String     @id @default(cuid())
+  orderId     String
+  bookId      String     @unique
+  format      BookFormat
+  priceInr    Int
+  quantity    Int        @default(1)
+  giftMessage String?
+  giftWrap    Boolean    @default(false)
+  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  book        Book       @relation(fields: [bookId], references: [id])
+
+  @@map("order_items")
+}
+
+// === PRINT QUEUE ===
+
+model PrintJob {
+  id               String         @id @default(cuid())
+  orderItemId      String         @unique
+  status           PrintJobStatus @default(QUEUED)
+  printReadyPdfUrl String?
+  coverPdfUrl      String?
+  interiorPdfUrl   String?
+  pressOperator    String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("print_jobs")
+}
+
+// === SUPPORTING TABLES ===
+
+model Review {
+  id              String   @id @default(cuid())
+  userId          String
+  storyTemplateId String
+  rating          Int
+  title           String?
+  body            String
+  photoUrls       String[]
+  isVerified      Boolean  @default(false)
+  isPublished     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@map("reviews")
+}
+
+model Referral {
+  id              String         @id @default(cuid())
+  referrerId      String
+  refereeId       String?
+  referralCode    String         @unique
+  rewardAmountInr Int            @default(20000)
+  status          ReferralStatus @default(PENDING)
+  redeemedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  referrer        User           @relation("Referrer", fields: [referrerId], references: [id])
+  referee         User?          @relation("Referee", fields: [refereeId], references: [id])
+
+  @@map("referrals")
+}
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  to         String
+  templateId String
+  subject    String
+  status     String
+  resendId   String?
+  payload    Json?
+  sentAt     DateTime @default(now())
+
+  @@map("email_logs")
+}
+
+model AiUsageLog {
+  id           String   @id @default(cuid())
+  provider     String
+  operation    String
+  bookId       String?
+  pageNumber   Int?
+  inputTokens  Int?
+  outputTokens Int?
+  imageCount   Int?
+  costCents    Int
+  latencyMs    Int
+  success      Boolean
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@map("ai_usage_logs")
+}
+
+model SiteSettings {
+  id        String   @id @default("default")
+  settings  Json     @default("{}")
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("site_settings")
+}
+
+/// Encrypted application secrets (e.g. provider API keys). The `valueEnc`
+/// column stores AES-256-GCM ciphertext; plaintext never touches the DB and is
+/// never returned by any public endpoint.
+model AppSecret {
+  key       String   @id
+  valueEnc  String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("app_secrets")
+}

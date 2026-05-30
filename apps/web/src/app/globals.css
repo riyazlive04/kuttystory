@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 270 10% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 270 10% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 270 10% 15%;
+    --primary: 290 40% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 330 50% 75%;
+    --secondary-foreground: 270 10% 15%;
+    --muted: 270 10% 96%;
+    --muted-foreground: 270 5% 45%;
+    --accent: 290 30% 93%;
+    --accent-foreground: 270 10% 15%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 10% 90%;
+    --input: 270 10% 90%;
+    --ring: 290 40% 60%;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-inter), 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-nunito), 'Nunito', sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-purple-600;
+  }
+
+  .bg-gradient-brand {
+    @apply bg-gradient-to-r from-pink-500 to-purple-600;
+  }
+
+  .bg-gradient-brand-soft {
+    @apply bg-gradient-to-br from-pink-50 via-purple-50 to-white;
+  }
+
+  .section-padding {
+    @apply px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24;
+  }
+
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+}

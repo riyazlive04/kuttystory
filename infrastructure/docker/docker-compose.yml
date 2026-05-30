@@ -1,0 +1,51 @@
+# ──────────────────────────────────────────────────────────────
+# Docker Compose for Kutty Story Local Development
+# Usage: docker compose up -d
+# ──────────────────────────────────────────────────────────────
+
+version: '3.8'
+
+services:
+  # ─── PostgreSQL 16 ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: kutty-story-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kuttystory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kuttystory_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-kuttystory}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-kuttystory}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis 7 ───────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: kutty-story-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    # noeviction (not allkeys-lru): Redis backs the BullMQ generation queues.
+    # Under memory pressure it must reject writes, never silently evict queued
+    # jobs — otherwise pages could vanish mid-generation.
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy noeviction
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
