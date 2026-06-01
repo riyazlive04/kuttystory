@@ -1,0 +1,6 @@
+# Generated comparison runs (images can be large) — never commit
+test-output/
+
+# Real run config + test photos are local-only; only the example is committed
+comparison-config.ts
+photos/
