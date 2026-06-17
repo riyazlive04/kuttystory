@@ -19,29 +19,29 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[hsl(var(--muted))]">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-brand-soft p-4">
         <LoginForm />
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-gradient-brand-soft">
       <Sidebar />
       <div className="flex flex-1 flex-col pl-64">
         {/* Top Bar */}
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-end gap-4 border-b bg-white/80 px-6 backdrop-blur-sm">
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-end gap-4 border-b border-border bg-white/70 px-6 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100">
-              <User className="h-4 w-4 text-brand-600" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-purple-600 text-white">
+              <User className="h-4 w-4" />
             </div>
             <div className="text-sm">
-              <p className="font-medium">{user?.name || user?.email}</p>
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">{user?.role}</p>
+              <p className="font-semibold">{user?.name || user?.email}</p>
+              <p className="text-xs text-muted-foreground">{user?.role}</p>
             </div>
             <button
               onClick={logout}
-              className="ml-2 rounded-lg p-2 text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]"
+              className="ml-2 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-purple-50 hover:text-purple-700"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
@@ -75,9 +75,8 @@ function LoginForm() {
       setIsSubmitting(false);
     }
   };
-
   return (
-    <div className="w-full max-w-sm rounded-xl border bg-white p-8 shadow-lg">
+    <div className="w-full max-w-sm rounded-2xl border border-border bg-white p-8 shadow-xl shadow-purple-500/10">
       <div className="mb-6 text-center">
         <Image
           src="/KuttyStoryFullLogo.png"
@@ -87,8 +86,8 @@ function LoginForm() {
           priority
           className="mx-auto mb-4 h-14 w-auto object-contain"
         />
-        <h1 className="text-xl font-bold">Admin Login</h1>
-        <p className="text-sm text-[hsl(var(--muted-foreground))]">Kutty Story Admin Panel</p>
+        <h1 className="text-2xl font-extrabold text-gradient">Admin Login</h1>
+        <p className="text-sm text-muted-foreground">Kutty Story Admin Panel</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -125,7 +124,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-purple-500/20 transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? 'Signing in...' : 'Sign In'}
         </button>

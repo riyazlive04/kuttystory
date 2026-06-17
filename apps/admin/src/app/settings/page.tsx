@@ -9,6 +9,8 @@ import {
   CheckCircle,
   Sparkles,
   KeyRound,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
@@ -22,7 +24,13 @@ interface SiteSettings {
   freeShippingThreshold: number;
   maxPreviewsPerDay: number;
   imageGenEnabled: boolean;
-  imageProvider: 'gemini' | 'openai' | 'fal';
+  imageProvider:
+    | 'gemini'
+    | 'openai'
+    | 'fal'
+    | 'flux-kontext'
+    | 'openai-fal'
+    | 'flux-lora';
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -76,7 +84,10 @@ function Toggle({
 }
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
   // Last values persisted on the server — used to detect unsaved changes.
   const [savedSettings, setSavedSettings] =
@@ -154,6 +165,29 @@ export default function SettingsPage() {
   };
 
   const discardChanges = () => setSettings(savedSettings);
+
+  const startEditName = () => {
+    setNameInput(user?.name || '');
+    setEditingName(true);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      showToast('Name cannot be empty');
+      return;
+    }
+    setSavingName(true);
+    try {
+      await updateProfile(trimmed);
+      setEditingName(false);
+      showToast('Name updated!');
+    } catch {
+      showToast('Failed to update name');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const saveSecret = async (key: ProviderSecretKey) => {
     const value = keyInputs[key]?.trim();
@@ -233,9 +267,53 @@ export default function SettingsPage() {
             <Shield className="h-5 w-5" /> Account
           </h2>
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-[hsl(var(--muted-foreground))]">Name</span>
-              <span className="font-medium">{user?.name || '--'}</span>
+              {editingName ? (
+                <div className="flex flex-1 items-center justify-end gap-2">
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveName();
+                      if (e.key === 'Escape') setEditingName(false);
+                    }}
+                    autoFocus
+                    className="w-full max-w-[200px] rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    placeholder="Your name"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveName}
+                    disabled={savingName}
+                    className="shrink-0 rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    {savingName ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingName(false)}
+                    disabled={savingName}
+                    className="shrink-0 rounded-lg border border-gray-300 p-1.5 text-muted-foreground transition-colors hover:bg-[hsl(var(--muted))] disabled:opacity-50"
+                    title="Cancel"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{user?.name || '--'}</span>
+                  <button
+                    type="button"
+                    onClick={startEditName}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-purple-50 hover:text-purple-700"
+                    title="Edit name"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex justify-between">
               <span className="text-[hsl(var(--muted-foreground))]">Email</span>
@@ -396,7 +474,16 @@ export default function SettingsPage() {
         <div className="border-b py-4">
           <p className="mb-2 text-sm font-medium">Active Provider</p>
           <div className="flex flex-wrap gap-2">
-            {(['gemini', 'openai', 'fal'] as const).map((p) => (
+            {(
+              [
+                'gemini',
+                'openai',
+                'fal',
+                'flux-kontext',
+                'openai-fal',
+                'flux-lora',
+              ] as const
+            ).map((p) => (
               <button
                 key={p}
                 type="button"
@@ -411,7 +498,13 @@ export default function SettingsPage() {
                   ? 'Google Gemini'
                   : p === 'openai'
                     ? 'OpenAI'
-                    : 'Fal.ai (PuLID)'}
+                    : p === 'fal'
+                      ? 'Fal.ai (PuLID)'
+                      : p === 'flux-kontext'
+                        ? 'FLUX.1 Kontext'
+                        : p === 'openai-fal'
+                          ? 'OpenAI via fal (gpt-image-2)'
+                          : 'FLUX LoRA (per-child)'}
                 {settings.imageProvider === p && (
                   <CheckCircle className="ml-2 inline h-3.5 w-3.5" />
                 )}

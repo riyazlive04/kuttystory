@@ -19,7 +19,7 @@ Personalized AI storybook platform for the Indian market. Parents upload their c
 ```
 kutty-story/
 ├── apps/
-│   ├── web/          # Customer-facing Next.js app (port 3000)
+│   ├── web/          # Customer-facing Next.js app (port 3002)
 │   ├── admin/        # Admin panel Next.js app (port 3001)
 │   └── api/          # NestJS backend API (port 4000)
 ├── packages/
@@ -85,7 +85,7 @@ cp .env.example apps/admin/.env.local
 
 | App | URL | Description |
 |-----|-----|-------------|
-| Web | http://localhost:3000 | Customer-facing storefront |
+| Web | http://localhost:3002 | Customer-facing storefront |
 | Admin | http://localhost:3001 | Admin panel for press team |
 | API | http://localhost:4000 | Backend API |
 

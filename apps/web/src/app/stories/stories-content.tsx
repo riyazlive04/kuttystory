@@ -17,7 +17,15 @@ interface Story {
   ageMax: number;
   price: string;
   description: string;
+  gender: string;
 }
+
+// Which stories suit which child. 'Neutral' shows for everyone.
+const storyGender: Record<string, string> = {
+  'abc-adventure': 'Neutral',
+  'magical-unicorn': 'Girl',
+  'beach-adventure': 'Boy',
+};
 
 const coverImages: Record<string, string> = {
   'abc-adventure': '/images/stories/abc-adventure.jpg',
@@ -43,6 +51,7 @@ const fallbackStories: Story[] = [
     price: formatPriceInr(PRICING.PDF_DOWNLOAD),
     description:
       'An interactive alphabet adventure with hidden seek-and-find elements on every page.',
+    gender: 'Neutral',
   },
   {
     slug: 'magical-unicorn',
@@ -55,6 +64,7 @@ const fallbackStories: Story[] = [
     price: formatPriceInr(PRICING.PDF_DOWNLOAD),
     description:
       'A magical journey where your child befriends a unicorn named Luna on an enchanted quest.',
+    gender: 'Girl',
   },
   {
     slug: 'beach-adventure',
@@ -67,10 +77,12 @@ const fallbackStories: Story[] = [
     price: formatPriceInr(PRICING.PDF_DOWNLOAD),
     description:
       'A sunny beach day with sandcastles, seashells, waves, and a perfect day by the ocean.',
+    gender: 'Boy',
   },
 ];
 
 const themes = ['All', 'Adventure', 'Learning', 'Imagination'];
+const genders = ['All', 'Boy', 'Girl', 'Neutral'];
 const ageRanges = [
   { label: 'All Ages', min: 0, max: 15 },
   { label: '2-4 years', min: 2, max: 4 },
@@ -93,6 +105,7 @@ export default function StoriesContent() {
   const [search, setSearch] = useState('');
   const [selectedTheme, setSelectedTheme] = useState('All');
   const [selectedAgeRange, setSelectedAgeRange] = useState(ageRanges[0]);
+  const [selectedGender, setSelectedGender] = useState('All');
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
@@ -123,6 +136,7 @@ export default function StoriesContent() {
               ageMax: s.ageMax as number,
               price: formatPriceInr(s.basePriceInr as number),
               description: s.description as string,
+              gender: storyGender[s.slug as string] || 'Neutral',
             }),
           );
           setStories(mapped);
@@ -143,6 +157,17 @@ export default function StoriesContent() {
       if (selectedTheme !== 'All' && story.theme !== selectedTheme) {
         return false;
       }
+      // Gender: a selected Boy/Girl also shows Neutral stories (suitable for any child).
+      if (selectedGender !== 'All') {
+        if (selectedGender === 'Neutral') {
+          if (story.gender !== 'Neutral') return false;
+        } else if (
+          story.gender !== selectedGender &&
+          story.gender !== 'Neutral'
+        ) {
+          return false;
+        }
+      }
       if (selectedAgeRange.min > 0) {
         const overlaps =
           story.ageMin <= selectedAgeRange.max &&
@@ -151,16 +176,18 @@ export default function StoriesContent() {
       }
       return true;
     });
-  }, [stories, search, selectedTheme, selectedAgeRange]);
+  }, [stories, search, selectedTheme, selectedGender, selectedAgeRange]);
 
   const hasActiveFilters =
     search !== '' ||
     selectedTheme !== 'All' ||
+    selectedGender !== 'All' ||
     selectedAgeRange !== ageRanges[0];
 
   const clearFilters = () => {
     setSearch('');
     setSelectedTheme('All');
+    setSelectedGender('All');
     setSelectedAgeRange(ageRanges[0]);
   };
 
@@ -227,6 +254,27 @@ export default function StoriesContent() {
                   }`}
                 >
                   {theme}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Gender
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {genders.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setSelectedGender(g)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    selectedGender === g
+                      ? 'bg-gradient-brand text-white shadow-md'
+                      : 'bg-white border border-border text-muted-foreground hover:border-purple-300 hover:text-foreground'
+                  }`}
+                >
+                  {g}
                 </button>
               ))}
             </div>

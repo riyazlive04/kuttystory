@@ -21,8 +21,8 @@ const FULL_GEN_SKIP_STATUSES = [
 
 /** Pricing in paise per format */
 const FORMAT_PRICING: Record<string, number> = {
-  PDF_DOWNLOAD: 89900, // 899 INR
-  PRINTED_BOOK: 129900, // 1299 INR
+  PDF_DOWNLOAD: 79900, // 799 INR
+  PRINTED_BOOK: 139900, // 1399 INR
 };
 
 @Injectable()

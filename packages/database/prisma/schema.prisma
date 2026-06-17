@@ -143,6 +143,11 @@ model ChildProfile {
   hasGlasses         Boolean  @default(false)
   referencePhotoUrls String[]
   faceEmbedding      Json?
+  // Cached per-child FLUX LoRA (trained on the child's photos) for fully
+  // consistent, illustrated character generation across all pages.
+  loraUrl            String?
+  loraTriggerWord    String?
+  loraTrainedAt      DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)

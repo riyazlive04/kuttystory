@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Nunito, Inter } from 'next/font/google';
 import './globals.css';
 import { Header } from '@/components/header';
+import { PromoBanner } from '@/components/promo-banner';
 import { Footer } from '@/components/footer';
 import { AuthProvider } from '@/lib/auth-context';
 import { SettingsProvider } from '@/lib/settings-context';
@@ -138,7 +139,7 @@ const jsonLd = {
           name: 'How long does it take to create and deliver a book?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Once you place an order, our AI generates the illustrations within minutes. Printing takes 3-5 business days, and delivery across India typically takes 5-7 business days.',
+            text: 'Once you place an order, our AI generates the illustrations within minutes. Delivery within India typically takes 5 to 10 business days, and international delivery takes about 2 to 3 weeks.',
           },
         },
         {
@@ -178,7 +179,7 @@ const jsonLd = {
           name: 'Do you ship internationally?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Currently, we ship across India with free shipping on orders above ₹999. International shipping is coming soon.',
+            text: 'Yes! We ship across India and internationally. Domestic orders typically arrive in 5 to 10 business days, and international orders in about 2 to 3 weeks.',
           },
         },
       ],
@@ -209,6 +210,7 @@ export default function RootLayout({
       >
         <SettingsProvider>
           <AuthProvider>
+            <PromoBanner />
             <Header />
             <main className="min-h-[calc(100vh-4rem)]">{children}</main>
             <Footer />

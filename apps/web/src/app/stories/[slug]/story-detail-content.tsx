@@ -493,6 +493,47 @@ export default function StoryDetailContent({ slug }: { slug: string }) {
           </div>
         </div>
 
+        {/* You may also like — recommended stories */}
+        <div className="mb-16">
+          <h2 className="font-heading text-2xl font-bold mb-6">
+            You may also like
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+            {Object.entries(STORY_FALLBACK)
+              .filter(([s]) => s !== slug)
+              .map(([s, m]) => (
+                <Link
+                  key={s}
+                  href={`/stories/${s}`}
+                  className="group rounded-2xl border border-border bg-white overflow-hidden shadow-sm transition-shadow hover:shadow-lg hover:shadow-purple-500/10"
+                >
+                  <div className="relative aspect-square bg-gradient-to-br from-pink-50 to-purple-50">
+                    <Image
+                      src={`/images/stories/${s}.jpg`}
+                      alt={m.title}
+                      fill
+                      className="object-cover transition-transform group-hover:scale-105"
+                      sizes="(max-width: 640px) 50vw, 33vw"
+                    />
+                  </div>
+                  <div className="p-3 sm:p-4">
+                    <p className="font-heading font-semibold text-sm sm:text-base truncate">
+                      {m.title}
+                    </p>
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        Ages {m.ageMin}-{m.ageMax}
+                      </span>
+                      <span className="text-sm font-bold text-gradient">
+                        {formatPriceInr(PRICING.PDF_DOWNLOAD)}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+          </div>
+        </div>
+
         {/* CTA Banner */}
         <div className="rounded-3xl bg-gradient-brand p-8 sm:p-12 text-center">
           <h2 className="font-heading text-2xl sm:text-3xl font-bold text-white mb-3">

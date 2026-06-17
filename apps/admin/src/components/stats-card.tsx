@@ -15,13 +15,13 @@ interface StatsCardProps {
 
 export function StatsCard({ title, value, description, icon: Icon, trend, className = '' }: StatsCardProps) {
   return (
-    <div className={`rounded-xl border bg-[hsl(var(--card))] p-6 shadow-sm ${className}`}>
+    <div className={`rounded-2xl border border-border bg-white p-6 shadow-sm transition-shadow hover:shadow-md hover:shadow-purple-500/5 ${className}`}>
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-[hsl(var(--muted-foreground))]">{title}</p>
-          <p className="text-2xl font-bold tracking-tight">{value}</p>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-extrabold tracking-tight">{value}</p>
           {description && (
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">{description}</p>
+            <p className="text-xs text-muted-foreground">{description}</p>
           )}
           {trend && (
             <p className={`text-xs font-medium ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
@@ -29,8 +29,8 @@ export function StatsCard({ title, value, description, icon: Icon, trend, classN
             </p>
           )}
         </div>
-        <div className="rounded-lg bg-brand-100 p-2.5">
-          <Icon className="h-5 w-5 text-brand-600" />
+        <div className="rounded-xl bg-gradient-to-br from-pink-100 to-purple-100 p-2.5">
+          <Icon className="h-5 w-5 text-purple-600" />
         </div>
       </div>
     </div>

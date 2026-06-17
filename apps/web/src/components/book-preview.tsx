@@ -34,21 +34,23 @@ export function BookPreview({
     setCurrentPage(newPage);
   };
 
+  // Hinged page-turn: the page swings around the spine edge (transformOrigin)
+  // for a realistic book-flip feel rather than a flat slide.
   const variants = {
     enter: (dir: number) => ({
-      x: dir > 0 ? 300 : -300,
+      rotateY: dir > 0 ? 100 : -100,
+      x: dir > 0 ? 80 : -80,
       opacity: 0,
-      rotateY: dir > 0 ? 45 : -45,
     }),
     center: {
+      rotateY: 0,
       x: 0,
       opacity: 1,
-      rotateY: 0,
     },
     exit: (dir: number) => ({
-      x: dir > 0 ? -300 : 300,
+      rotateY: dir > 0 ? -100 : 100,
+      x: dir > 0 ? -80 : 80,
       opacity: 0,
-      rotateY: dir > 0 ? -45 : 45,
     }),
   };
 
@@ -78,11 +80,16 @@ export function BookPreview({
               animate="center"
               exit="exit"
               transition={{
-                x: { type: 'spring', stiffness: 300, damping: 30 },
-                opacity: { duration: 0.2 },
-                rotateY: { duration: 0.4 },
+                x: { type: 'spring', stiffness: 260, damping: 30 },
+                opacity: { duration: 0.25 },
+                rotateY: { duration: 0.5, ease: 'easeInOut' },
               }}
               className="absolute inset-0"
+              style={{
+                transformOrigin: direction > 0 ? 'left center' : 'right center',
+                transformStyle: 'preserve-3d',
+                backfaceVisibility: 'hidden',
+              }}
             >
               <div className="relative w-full h-full bg-gradient-to-br from-pink-50 to-purple-50">
                 <Image
@@ -112,8 +119,6 @@ export function BookPreview({
           </AnimatePresence>
         </div>
 
-        {/* Book spine effect */}
-        <div className="absolute top-0 left-1/2 -translate-x-px w-0.5 h-full bg-gradient-to-b from-gray-200 via-gray-300 to-gray-200 opacity-30" />
       </div>
 
       {/* Controls */}

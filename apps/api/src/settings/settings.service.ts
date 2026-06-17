@@ -13,7 +13,13 @@ const DEFAULT_SETTINGS = {
   maxPreviewsPerDay: 5,
   // AI image generation (non-secret flags; the API keys live in app_secrets, encrypted)
   imageGenEnabled: false,
-  imageProvider: 'gemini' as 'gemini' | 'openai' | 'fal',
+  imageProvider: 'gemini' as
+    | 'gemini'
+    | 'openai'
+    | 'fal'
+    | 'flux-kontext'
+    | 'openai-fal'
+    | 'flux-lora',
 };
 
 /** Secret keys that may be stored — anything not listed is rejected. */
@@ -167,19 +173,45 @@ export class SettingsService {
 
   /** Resolve the API key for the currently selected image provider. */
   async getActiveImageProviderConfig(): Promise<{
-    provider: 'gemini' | 'openai' | 'fal';
+    provider:
+      | 'gemini'
+      | 'openai'
+      | 'fal'
+      | 'flux-kontext'
+      | 'openai-fal'
+      | 'flux-lora';
     apiKey: string | null;
     enabled: boolean;
   }> {
     const settings = await this.getSettings();
     const raw = settings.imageProvider;
-    const provider: 'gemini' | 'openai' | 'fal' =
-      raw === 'openai' ? 'openai' : raw === 'fal' ? 'fal' : 'gemini';
+    const provider:
+      | 'gemini'
+      | 'openai'
+      | 'fal'
+      | 'flux-kontext'
+      | 'openai-fal'
+      | 'flux-lora' =
+      raw === 'openai'
+        ? 'openai'
+        : raw === 'fal'
+          ? 'fal'
+          : raw === 'flux-kontext'
+            ? 'flux-kontext'
+            : raw === 'openai-fal'
+              ? 'openai-fal'
+              : raw === 'flux-lora'
+                ? 'flux-lora'
+                : 'gemini';
     const enabled = settings.imageGenEnabled === true;
+    // fal-hosted providers (PuLID, Kontext, OpenAI-via-fal, LoRA) use the fal key.
     const secretKey: SecretKey =
       provider === 'openai'
         ? 'openaiApiKey'
-        : provider === 'fal'
+        : provider === 'fal' ||
+            provider === 'flux-kontext' ||
+            provider === 'openai-fal' ||
+            provider === 'flux-lora'
           ? 'falApiKey'
           : 'geminiApiKey';
     const apiKey = await this.getSecret(secretKey);

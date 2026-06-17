@@ -86,7 +86,7 @@ check_health() {
 
 HEALTH_OK=true
 check_health "http://localhost:4000/health" "API" || HEALTH_OK=false
-check_health "http://localhost:3000" "Web" || HEALTH_OK=false
+check_health "http://localhost:3002" "Web" || HEALTH_OK=false
 check_health "http://localhost:3001" "Admin" || HEALTH_OK=false
 
 echo ""

@@ -26,6 +26,14 @@ export class AuthService {
     return hash === verify;
   }
 
+  /** Update the signed-in user's editable profile fields (currently name). */
+  async updateProfile(userId: string, data: { name: string }) {
+    return this.db.user.update({
+      where: { id: userId },
+      data: { name: data.name },
+    });
+  }
+
   /**
    * Create an anonymous "guest" user + session so a visitor can generate and
    * store a book before signing up. The guest is upgraded in place (or its data

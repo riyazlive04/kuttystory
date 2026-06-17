@@ -17,7 +17,7 @@ import { BookPreview } from '@/components/book-preview';
 import { api, ensureGuestSession } from '@/lib/api';
 
 const FULL_BOOK_PAGE_COUNT = 28;
-const PREVIEW_PAGE_COUNT = 5;
+const PREVIEW_PAGE_COUNT = 3;
 
 interface Step6Props {
   wizard: WizardState;
@@ -566,8 +566,8 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
               </a>
               <p className="mt-3 text-xs text-muted-foreground">
                 We&apos;ll create all {FULL_BOOK_PAGE_COUNT} personalized pages
-                after you order and deliver your book. Choose PDF (₹899) or
-                printed book (₹1,299) at checkout.
+                after you order and deliver your book. Choose PDF (₹799) or
+                printed book (₹1,399) at checkout.
               </p>
             </div>
           </motion.div>
@@ -640,7 +640,7 @@ export function Step6Preview({ wizard, onUpdate, onBack }: Step6Props) {
                 Love It! Order Now
               </a>
               <p className="text-xs text-muted-foreground mt-3">
-                Choose PDF download (₹899) or printed book (₹1,299) at
+                Choose PDF download (₹799) or printed book (₹1,399) at
                 checkout.
               </p>
             </div>

@@ -1,12 +1,14 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   Res,
   Get,
   Req,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
   HttpCode,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -176,6 +178,38 @@ export class AuthController {
         role: user.role,
         phone: user.phone,
         isGuest: user.isGuest,
+      },
+    };
+  }
+
+  /** Update the signed-in user's profile (name). Requires a valid session. */
+  @Patch('me')
+  async updateMe(@Req() req: Request, @Body() body: { name?: string }) {
+    const token = req.cookies?.session_token;
+    const user = token
+      ? await this.authService.validateSession(token)
+      : null;
+
+    if (!user) {
+      throw new UnauthorizedException('Not authenticated');
+    }
+
+    const name = (body?.name ?? '').trim();
+    if (!name) {
+      throw new BadRequestException('Name cannot be empty');
+    }
+
+    const updated = await this.authService.updateProfile(user.id, { name });
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        email: updated.email,
+        name: updated.name,
+        role: updated.role,
+        phone: updated.phone,
+        isGuest: updated.isGuest,
       },
     };
   }

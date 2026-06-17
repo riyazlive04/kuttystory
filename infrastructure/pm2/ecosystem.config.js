@@ -8,7 +8,7 @@ module.exports = {
       name: 'kutty-story-web',
       cwd: '/var/www/kutty-story/apps/web',
       script: 'node_modules/.bin/next',
-      args: 'start --port 3000',
+      args: 'start --port 3002',
       // .bin/next is a shell wrapper (pnpm) — run it directly, not via node.
       interpreter: 'none',
       instances: 1,
@@ -18,7 +18,7 @@ module.exports = {
       max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: 3002,
       },
       error_file: '/var/log/kutty-story/web-error.log',
       out_file: '/var/log/kutty-story/web-out.log',

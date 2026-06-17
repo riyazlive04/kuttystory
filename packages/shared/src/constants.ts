@@ -19,9 +19,9 @@ export const COST_LIMITS = {
 /** Book format prices in paise (1 INR = 100 paise). */
 export const PRICING = {
   /** PDF download only */
-  PDF_DOWNLOAD: 89_900,
+  PDF_DOWNLOAD: 79_900,
   /** Printed + shipped book */
-  PRINTED_BOOK: 129_900,
+  PRINTED_BOOK: 139_900,
   /** Additional cost when a bilingual edition is selected. */
   BILINGUAL_UPSELL: 20_000,
 } as const;

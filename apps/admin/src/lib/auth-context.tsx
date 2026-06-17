@@ -22,6 +22,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -71,6 +72,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const updateProfile = async (name: string) => {
+    const res = await api.patch<AuthResponse>('/auth/me', { name });
+    if (res.data) {
+      setUser((prev) => (prev ? { ...prev, ...res.data } : res.data));
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -79,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
+        updateProfile,
       }}
     >
       {children}

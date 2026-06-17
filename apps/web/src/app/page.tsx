@@ -86,9 +86,9 @@ const howItWorks = [
   },
   {
     icon: Sparkles,
-    title: 'AI Magic',
+    title: 'Preview',
     description:
-      'Our AI illustrator generates stunning, personalized artwork placing your child as the hero of every page.',
+      'Instantly preview your personalized story — see your child illustrated as the hero before you order.',
   },
   {
     icon: Truck,
@@ -123,7 +123,7 @@ const faqs = [
   {
     question: 'How long does it take to create and deliver a book?',
     answer:
-      'Once you place an order, our AI generates the illustrations within minutes. Printing takes 3-5 business days, and delivery across India typically takes 5-7 business days. Total time is about 10-14 days.',
+      'Once you place an order, our AI generates the illustrations within minutes. Delivery within India typically takes 5 to 10 business days. International delivery takes about 2 to 3 weeks.',
   },
   {
     question: 'What photo quality do I need?',
@@ -148,7 +148,7 @@ const faqs = [
   {
     question: 'Do you ship internationally?',
     answer:
-      'Currently, we ship across India with free shipping on orders above a certain value. International shipping is coming soon. Contact us if you need a special arrangement.',
+      'Yes! We ship across India and internationally. Domestic orders typically arrive in 5 to 10 business days, and international orders in about 2 to 3 weeks. Contact us if you need a special arrangement.',
   },
 ];
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, User, LogOut } from 'lucide-react';
+import { Menu, X, User, LogOut, Search, ShoppingBag } from 'lucide-react';
 import { Button } from '@kutty-story/ui';
 import { useAuth } from '@/lib/auth-context';
 import { AuthModal } from './auth-modal';
@@ -13,6 +13,8 @@ const navLinks = [
   { href: '/stories', label: 'Stories' },
   { href: '/#how-it-works', label: 'How it Works' },
   { href: '/#pricing', label: 'Pricing' },
+  { href: '/my-books', label: 'My Books' },
+  { href: '/contact', label: 'Support' },
 ];
 
 export function Header() {
@@ -25,11 +27,11 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background shadow-sm">
         <div className="container-custom flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group shrink-0">
-            <Logo desktopHeightClass="h-11" mobileHeightClass="h-8" />
+            <Logo desktopHeightClass="h-12" mobileHeightClass="h-9" />
           </Link>
 
           {/* Desktop nav */}
@@ -47,14 +49,32 @@ export function Header() {
 
           {/* Desktop auth */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Utility icons: search, cart, account */}
+            <Link
+              href="/stories"
+              aria-label="Browse stories"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <Search className="h-[18px] w-[18px]" />
+            </Link>
+            <Link
+              href="/my-books"
+              aria-label="My books"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            >
+              <ShoppingBag className="h-[18px] w-[18px]" />
+            </Link>
+            {!user && (
+              <button
+                onClick={() => setAuthModal('login')}
+                aria-label="Log in"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <User className="h-[18px] w-[18px]" />
+              </button>
+            )}
             {user ? (
               <div className="flex items-center gap-3">
-                <Link
-                  href="/create"
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-brand px-5 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-                >
-                  Create Your Book
-                </Link>
                 <div className="relative group">
                   <button className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
                     <User className="h-4 w-4" />
@@ -90,14 +110,7 @@ export function Header() {
                   Sign Up
                 </button>
               </>
-            ) : (
-              <Link
-                href="/create"
-                className="inline-flex items-center justify-center rounded-full bg-gradient-brand px-5 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-              >
-                Create Your Book
-              </Link>
-            )}
+            ) : null}
           </div>
 
           {/* Mobile menu button */}

@@ -49,11 +49,11 @@ export function DataTable<T>({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-[hsl(var(--border))]">
+    <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-[hsl(var(--muted))]">
+            <tr className="border-b border-border bg-gradient-to-r from-pink-50 to-purple-50">
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -93,7 +93,7 @@ export function DataTable<T>({
               data.map((row, idx) => (
                 <tr
                   key={(row as { id?: string }).id || idx}
-                  className={`border-b transition-colors hover:bg-[hsl(var(--muted)/0.5)] ${
+                  className={`border-b border-border transition-colors hover:bg-purple-50/50 ${
                     onRowClick ? 'cursor-pointer' : ''
                   }`}
                   onClick={() => onRowClick?.(row)}

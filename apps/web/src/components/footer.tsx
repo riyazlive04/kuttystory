@@ -14,12 +14,12 @@ const footerLinks = {
   ],
   support: [
     { label: 'FAQ', href: '/#faq' },
-    { label: 'Track Order', href: '/track' },
     { label: 'Shipping Info', href: '/shipping' },
   ],
   legal: [
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Service', href: '/terms' },
+    { label: 'Returns & Refunds', href: '/refunds' },
   ],
 };
 

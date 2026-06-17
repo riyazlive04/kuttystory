@@ -7,21 +7,21 @@ const storyMeta: Record<string, { title: string; description: string; ageRange: 
     description:
       "An interactive alphabet adventure where your child explores 26 letters with hidden seek-and-find elements. Personalized with your child's photo. Ages 2-6. Starting ₹899.",
     ageRange: '2-6',
-    price: '899',
+    price: '799',
   },
   'magical-unicorn': {
     title: 'Magical Unicorn Adventure - Personalized Fantasy Book for Kids Ages 3-8',
     description:
       "Your child befriends Luna the unicorn on a magical quest. Watercolor-fantasy illustrations personalized with your child's likeness. Ages 3-8. Starting ₹899.",
     ageRange: '3-8',
-    price: '899',
+    price: '799',
   },
   'beach-adventure': {
     title: 'Beach Adventure - Personalized Story Book for Kids Ages 2-5',
     description:
       'A sunny beach day adventure with sandcastles, seashells and waves. Personalized with your child as the hero. Ages 2-5. Starting ₹899.',
     ageRange: '2-5',
-    price: '899',
+    price: '799',
   },
 };
 
@@ -69,7 +69,7 @@ export default async function StoryDetailPage({
           {
             '@type': 'Offer',
             name: 'PDF Download',
-            price: '899',
+            price: '799',
             priceCurrency: 'INR',
             availability: 'https://schema.org/InStock',
             url: `https://kuttystory.com/stories/${slug}`,
@@ -81,7 +81,7 @@ export default async function StoryDetailPage({
           {
             '@type': 'Offer',
             name: 'Printed Book',
-            price: '1299',
+            price: '1399',
             priceCurrency: 'INR',
             availability: 'https://schema.org/InStock',
             url: `https://kuttystory.com/stories/${slug}`,

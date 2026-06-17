@@ -28,7 +28,7 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      process.env.WEB_URL || 'http://localhost:3000',
+      process.env.WEB_URL || 'http://localhost:3002',
       process.env.ADMIN_URL || 'http://localhost:3001',
     ],
     credentials: true,
