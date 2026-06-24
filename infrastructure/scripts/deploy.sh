@@ -29,24 +29,33 @@ echo "Commit message: $(git log -1 --pretty=%B)"
 
 # ─── Install Dependencies ────────────────────────────────────
 
-echo "[2/6] Installing dependencies..."
+echo "[2/7] Installing dependencies..."
 pnpm install --frozen-lockfile --prefer-offline
 
-# ─── Build All Packages ──────────────────────────────────────
+# ─── Generate Prisma Client ──────────────────────────────────
+# Must run after install (schema may have changed) and BEFORE build,
+# since the API compiles against the generated client types.
 
-echo "[3/6] Building all packages..."
-pnpm build
+echo "[3/7] Generating Prisma client..."
+pnpm db:generate
 
 # ─── Run Database Migrations ─────────────────────────────────
+# Apply migrations before build so the DB schema and generated
+# client are in sync before any process starts querying.
 
-echo "[4/6] Running database migrations..."
+echo "[4/7] Running database migrations..."
 cd "$APP_DIR/packages/database"
 npx prisma migrate deploy
 cd "$APP_DIR"
 
+# ─── Build All Packages ──────────────────────────────────────
+
+echo "[5/7] Building all packages..."
+pnpm build
+
 # ─── Reload PM2 Processes ────────────────────────────────────
 
-echo "[5/6] Reloading PM2 processes..."
+echo "[6/7] Reloading PM2 processes..."
 if pm2 describe kutty-story-api > /dev/null 2>&1; then
     # Graceful reload (zero-downtime for cluster mode)
     pm2 reload "$PM2_CONFIG" --update-env
@@ -60,7 +69,7 @@ pm2 save
 
 # ─── Health Check ─────────────────────────────────────────────
 
-echo "[6/6] Running health checks..."
+echo "[7/7] Running health checks..."
 
 HEALTH_CHECK_RETRIES=10
 HEALTH_CHECK_DELAY=3
