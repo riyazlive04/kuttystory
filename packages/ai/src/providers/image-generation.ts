@@ -7,7 +7,11 @@ export type ImageProvider =
   | 'fal'
   | 'flux-kontext'
   | 'openai-fal'
-  | 'flux-lora';
+  | 'flux-lora'
+  // Segmind FaceSwap Comic: swaps the child's face INTO the story template,
+  // preserving the hand-illustrated art. Handled in apps/api (segmind.ts), not
+  // through generatePersonalizedImage — it's a face-swap, not a prompt-gen.
+  | 'segmind-faceswap';
 
 export interface ReferenceImage {
   data: Buffer;

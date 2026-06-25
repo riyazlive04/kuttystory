@@ -30,7 +30,8 @@ interface SiteSettings {
     | 'fal'
     | 'flux-kontext'
     | 'openai-fal'
-    | 'flux-lora';
+    | 'flux-lora'
+    | 'segmind-faceswap';
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -42,16 +43,21 @@ const DEFAULT_SETTINGS: SiteSettings = {
   freeShippingThreshold: 0,
   maxPreviewsPerDay: 5,
   imageGenEnabled: false,
-  imageProvider: 'gemini',
+  imageProvider: 'segmind-faceswap',
 };
 
 type SecretStatus = {
   geminiApiKey: boolean;
   openaiApiKey: boolean;
   falApiKey: boolean;
+  segmindApiKey: boolean;
 };
 
-type ProviderSecretKey = 'geminiApiKey' | 'openaiApiKey' | 'falApiKey';
+type ProviderSecretKey =
+  | 'geminiApiKey'
+  | 'openaiApiKey'
+  | 'falApiKey'
+  | 'segmindApiKey';
 
 function Toggle({
   enabled,
@@ -99,11 +105,13 @@ export default function SettingsPage() {
     geminiApiKey: false,
     openaiApiKey: false,
     falApiKey: false,
+    segmindApiKey: false,
   });
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({
     geminiApiKey: '',
     openaiApiKey: '',
     falApiKey: '',
+    segmindApiKey: '',
   });
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
@@ -476,6 +484,7 @@ export default function SettingsPage() {
           <div className="flex flex-wrap gap-2">
             {(
               [
+                'segmind-faceswap',
                 'gemini',
                 'openai',
                 'fal',
@@ -494,17 +503,19 @@ export default function SettingsPage() {
                     : 'border-gray-200 hover:bg-[hsl(var(--muted))]'
                 }`}
               >
-                {p === 'gemini'
-                  ? 'Google Gemini'
-                  : p === 'openai'
-                    ? 'OpenAI'
-                    : p === 'fal'
-                      ? 'Fal.ai (PuLID)'
-                      : p === 'flux-kontext'
-                        ? 'FLUX.1 Kontext'
-                        : p === 'openai-fal'
-                          ? 'OpenAI via fal (gpt-image-2)'
-                          : 'FLUX LoRA (per-child)'}
+                {p === 'segmind-faceswap'
+                  ? 'Segmind FaceSwap (template, recommended)'
+                  : p === 'gemini'
+                    ? 'Google Gemini'
+                    : p === 'openai'
+                      ? 'OpenAI'
+                      : p === 'fal'
+                        ? 'Fal.ai (PuLID)'
+                        : p === 'flux-kontext'
+                          ? 'FLUX.1 Kontext'
+                          : p === 'openai-fal'
+                            ? 'OpenAI via fal (gpt-image-2)'
+                            : 'FLUX LoRA (per-child)'}
                 {settings.imageProvider === p && (
                   <CheckCircle className="ml-2 inline h-3.5 w-3.5" />
                 )}
@@ -517,6 +528,7 @@ export default function SettingsPage() {
         <div className="space-y-5 pt-4">
           {(
             [
+              { key: 'segmindApiKey', label: 'Segmind API key', hint: 'From cloud.segmind.com/console — used by FaceSwap (default provider)' },
               { key: 'geminiApiKey', label: 'Google Gemini API key', hint: 'From Google AI Studio' },
               { key: 'openaiApiKey', label: 'OpenAI API key', hint: 'From platform.openai.com' },
               { key: 'falApiKey', label: 'Fal.ai API key', hint: 'From fal.ai/dashboard/keys' },

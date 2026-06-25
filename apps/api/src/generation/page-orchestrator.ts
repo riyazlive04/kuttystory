@@ -22,6 +22,7 @@ import {
   generateWithLora,
   buildLoraPagePrompt,
 } from './lora';
+import { faceSwapIntoTemplate } from './segmind';
 
 /** Per-image cost estimate (cents) used for budget enforcement + logging.
  *  OpenAI runs gpt-image-1.5 at quality:'high' + input_fidelity:'high' for
@@ -39,6 +40,9 @@ export const COST_PER_IMAGE_CENTS: Record<ImageProvider, number> = {
   'openai-fal': 20,
   // FLUX LoRA generation ≈ $0.02/image (training amortized separately, ~once/child).
   'flux-lora': 3,
+  // Segmind FaceSwap Comic ≈ $0.065/image → 28 pages ≈ 182c. The template-
+  // preserving face-swap path (default).
+  'segmind-faceswap': 7,
 };
 
 /** Free preview is LOCKED to the first N pages (5). The single source of truth
@@ -232,23 +236,32 @@ function wrapCaption(text: string, maxChars: number): string[] {
 }
 
 /**
- * Bake a caption onto the bottom of a square page image (semi-transparent band
- * + centered white text), via an SVG composite. Used for providers that
- * generate a fresh scene without rendering the page's title text (fal/PuLID) —
- * so those pages match the template-edit providers that bake the text in.
+ * Bake the personalized story caption onto the bottom of a square page image as
+ * a SOLID storybook panel (opaque cream panel + warm accent bar + bold text),
+ * via an SVG composite.
+ *
+ * The panel is intentionally opaque and tall enough (≥ ~22% of the page) to
+ * COVER any text the underlying art already carries. This is essential for the
+ * face-swap path (`segmind-faceswap`), where the template page keeps its own
+ * baked-in placeholder name (e.g. "Jerush") — the panel hides it and renders the
+ * correct child's name on top. The prompt-based providers (which generate a
+ * text-free scene) get the same consistent caption styling.
  */
 async function overlayCaption(buffer: Buffer, caption: string): Promise<Buffer> {
   const text = (caption || '').trim();
   if (!text) return buffer;
 
   const size = 1024;
-  const fontSize = 40;
-  const lineHeight = 52;
-  const padding = 28;
-  const lines = wrapCaption(text, 32).slice(0, 4);
-  const bandH = lines.length * lineHeight + padding * 2;
-  const bandY = size - bandH;
-  const firstBaseline = bandY + padding + fontSize - 8;
+  const fontSize = 42;
+  const lineHeight = 54;
+  const padY = 30;
+  const lines = wrapCaption(text, 34).slice(0, 4);
+
+  // Tall enough to fit the text AND cover the template's own caption box.
+  const textH = lines.length * lineHeight;
+  const panelH = Math.max(textH + padY * 2, Math.round(size * 0.22));
+  const panelY = size - panelH;
+  const firstBaseline = panelY + (panelH - textH) / 2 + fontSize - 8;
 
   const tspans = lines
     .map(
@@ -257,9 +270,12 @@ async function overlayCaption(buffer: Buffer, caption: string): Promise<Buffer> 
     )
     .join('');
 
+  // Solid (opaque) cream panel hides anything beneath it; warm accent bar on top
+  // for a finished storybook-caption feel; bold dark-brown text.
   const svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="${bandY}" width="${size}" height="${bandH}" fill="#000000" fill-opacity="0.55"/>
-    <text y="${firstBaseline}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="700" fill="#FFFFFF" text-anchor="middle">${tspans}</text>
+    <rect x="0" y="${panelY}" width="${size}" height="${panelH}" fill="#FFF8EC"/>
+    <rect x="0" y="${panelY}" width="${size}" height="8" fill="#E8552E"/>
+    <text y="${firstBaseline}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="800" fill="#3A2A1E" text-anchor="middle">${tspans}</text>
   </svg>`;
 
   return sharp(buffer)
@@ -380,7 +396,22 @@ async function generateAndStorePage(
   // shared provider path (OpenAI/Gemini/fal-PuLID/Kontext).
   let rawBuffer: Buffer;
   let latencyMs: number;
-  if (provider === 'flux-lora') {
+  if (provider === 'segmind-faceswap') {
+    // Face-swap the child's real photo INTO the template page (art preserved).
+    // source = child's photo, target = the story template illustration.
+    if (!baseImage) {
+      throw new Error(
+        'segmind-faceswap needs the story template page as the swap target, but it could not be loaded.',
+      );
+    }
+    const swap = await faceSwapIntoTemplate({
+      apiKey,
+      sourcePhoto: childRefs[0].data,
+      targetImage: baseImage.data,
+    });
+    rawBuffer = swap.buffer;
+    latencyMs = swap.latencyMs;
+  } else if (provider === 'flux-lora') {
     if (!loraUrl) throw new Error('flux-lora selected but no trained LoRA URL');
     const start = Date.now();
     rawBuffer = await generateWithLora({ apiKey, loraUrl, prompt });

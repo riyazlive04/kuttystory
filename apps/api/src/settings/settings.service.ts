@@ -13,22 +13,29 @@ const DEFAULT_SETTINGS = {
   maxPreviewsPerDay: 5,
   // AI image generation (non-secret flags; the API keys live in app_secrets, encrypted)
   imageGenEnabled: false,
-  // Default to 'openai' (gpt-image edit-in-place): swaps the child's face INTO the
-  // existing story template, preserving the hand-illustrated art/scene — the
-  // template-face-swap model. Fresh-generation providers (fal/flux-lora) discard
-  // the template and invent a new scene, so they are NOT the default. Admin can
-  // still switch to gemini/fal/flux-kontext/openai-fal/flux-lora anytime — all retained.
-  imageProvider: 'openai' as
+  // Default to 'segmind-faceswap' (FaceSwap Comic): swaps the child's real face
+  // INTO the hand-illustrated template, preserving the painterly storybook art —
+  // the Diffrun-style template face-swap, validated to keep the child's likeness
+  // and art style with no GPU/infra. OpenAI edit-in-place is the runner-up;
+  // fresh-generation providers (fal/flux-lora) discard the template entirely.
+  // All providers remain selectable in admin.
+  imageProvider: 'segmind-faceswap' as
     | 'gemini'
     | 'openai'
     | 'fal'
     | 'flux-kontext'
     | 'openai-fal'
-    | 'flux-lora',
+    | 'flux-lora'
+    | 'segmind-faceswap',
 };
 
 /** Secret keys that may be stored — anything not listed is rejected. */
-export const SECRET_KEYS = ['geminiApiKey', 'openaiApiKey', 'falApiKey'] as const;
+export const SECRET_KEYS = [
+  'geminiApiKey',
+  'openaiApiKey',
+  'falApiKey',
+  'segmindApiKey',
+] as const;
 export type SecretKey = (typeof SECRET_KEYS)[number];
 
 @Injectable()
@@ -184,7 +191,8 @@ export class SettingsService {
       | 'fal'
       | 'flux-kontext'
       | 'openai-fal'
-      | 'flux-lora';
+      | 'flux-lora'
+      | 'segmind-faceswap';
     apiKey: string | null;
     enabled: boolean;
   }> {
@@ -196,7 +204,8 @@ export class SettingsService {
       | 'fal'
       | 'flux-kontext'
       | 'openai-fal'
-      | 'flux-lora' =
+      | 'flux-lora'
+      | 'segmind-faceswap' =
       raw === 'gemini'
         ? 'gemini'
         : raw === 'fal'
@@ -207,18 +216,23 @@ export class SettingsService {
               ? 'openai-fal'
               : raw === 'flux-lora'
                 ? 'flux-lora'
-                : 'openai';
+                : raw === 'segmind-faceswap'
+                  ? 'segmind-faceswap'
+                  : 'openai';
     const enabled = settings.imageGenEnabled === true;
-    // fal-hosted providers (PuLID, Kontext, OpenAI-via-fal, LoRA) use the fal key.
+    // Each provider family draws from its own stored secret.
     const secretKey: SecretKey =
-      provider === 'openai'
-        ? 'openaiApiKey'
-        : provider === 'fal' ||
-            provider === 'flux-kontext' ||
-            provider === 'openai-fal' ||
-            provider === 'flux-lora'
-          ? 'falApiKey'
-          : 'geminiApiKey';
+      provider === 'segmind-faceswap'
+        ? 'segmindApiKey'
+        : provider === 'openai'
+          ? 'openaiApiKey'
+          : // fal-hosted providers (PuLID, Kontext, OpenAI-via-fal, LoRA) share the fal key.
+            provider === 'fal' ||
+              provider === 'flux-kontext' ||
+              provider === 'openai-fal' ||
+              provider === 'flux-lora'
+            ? 'falApiKey'
+            : 'geminiApiKey';
     const apiKey = await this.getSecret(secretKey);
     return { provider, apiKey, enabled };
   }
