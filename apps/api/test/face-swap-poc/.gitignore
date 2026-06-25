@@ -1,0 +1,6 @@
+# Never commit the child's photo or generated face-swap images (privacy).
+yahya.jpg
+*.jpg
+*.jpeg
+*.png
+output/
