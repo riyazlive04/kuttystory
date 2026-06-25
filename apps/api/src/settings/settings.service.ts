@@ -13,10 +13,12 @@ const DEFAULT_SETTINGS = {
   maxPreviewsPerDay: 5,
   // AI image generation (non-secret flags; the API keys live in app_secrets, encrypted)
   imageGenEnabled: false,
-  // Default to 'fal' (PuLID-Flux vector face-embedding): no per-child training,
-  // ~4c/image, fast enough for the 5-page preview in one parallel wave. Admin can
-  // switch to openai/gemini/flux-kontext/openai-fal/flux-lora anytime — all retained.
-  imageProvider: 'fal' as
+  // Default to 'openai' (gpt-image edit-in-place): swaps the child's face INTO the
+  // existing story template, preserving the hand-illustrated art/scene — the
+  // template-face-swap model. Fresh-generation providers (fal/flux-lora) discard
+  // the template and invent a new scene, so they are NOT the default. Admin can
+  // still switch to gemini/fal/flux-kontext/openai-fal/flux-lora anytime — all retained.
+  imageProvider: 'openai' as
     | 'gemini'
     | 'openai'
     | 'fal'
@@ -195,17 +197,17 @@ export class SettingsService {
       | 'flux-kontext'
       | 'openai-fal'
       | 'flux-lora' =
-      raw === 'openai'
-        ? 'openai'
-        : raw === 'gemini'
-          ? 'gemini'
+      raw === 'gemini'
+        ? 'gemini'
+        : raw === 'fal'
+          ? 'fal'
           : raw === 'flux-kontext'
             ? 'flux-kontext'
             : raw === 'openai-fal'
               ? 'openai-fal'
               : raw === 'flux-lora'
                 ? 'flux-lora'
-                : 'fal';
+                : 'openai';
     const enabled = settings.imageGenEnabled === true;
     // fal-hosted providers (PuLID, Kontext, OpenAI-via-fal, LoRA) use the fal key.
     const secretKey: SecretKey =

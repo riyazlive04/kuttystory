@@ -507,30 +507,12 @@ export async function generateBookPages(
   } = opts;
 
   try {
-    const active = await settings.getActiveImageProviderConfig();
-    const { apiKey, enabled } = active;
+    const { provider, apiKey, enabled } =
+      await settings.getActiveImageProviderConfig();
 
     if (!enabled || !apiKey) {
       throw new Error(
         'Image generation is not configured. Set the provider API key and enable it in admin settings.',
-      );
-    }
-
-    // Tiered provider policy:
-    //  • Full/paid book → the admin-selected provider (default 'fal'). Selecting
-    //    'flux-lora' makes the paid book the premium, max-consistency path.
-    //  • FREE preview → must stay fast + cheap, so it NEVER runs per-child LoRA
-    //    training (~3-5 min). When the selected provider is 'flux-lora', the
-    //    preview falls back to 'fal' (PuLID embeddings). LoRA is fal-hosted, so
-    //    'fal' reuses the SAME fal API key already resolved above — no extra
-    //    config and no missing-key risk. (`previewLimit != null` ⇒ preview run.)
-    const isPreview = previewLimit != null;
-    const provider =
-      isPreview && active.provider === 'flux-lora' ? 'fal' : active.provider;
-    if (isPreview && active.provider === 'flux-lora') {
-      logger.log(
-        `Preview for book ${bookId}: using fal (PuLID embeddings) instead of ` +
-          `flux-lora to keep the free preview fast (no per-child training).`,
       );
     }
 
