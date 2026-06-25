@@ -49,8 +49,13 @@ npx prisma migrate deploy
 cd "$APP_DIR"
 
 # ─── Build All Packages ──────────────────────────────────────
-
+# Clear stale TypeScript incremental caches first. nest-cli's deleteOutDir
+# wipes dist on every build, but a leftover *.tsbuildinfo makes tsc think the
+# (now-deleted) outputs are still current and silently SKIP emit — producing an
+# exit-0 build with NO dist/main.js, which crash-loops PM2. Deleting the caches
+# forces a real, full emit every deploy.
 echo "[5/7] Building all packages..."
+find "$APP_DIR/apps" "$APP_DIR/packages" -maxdepth 2 -name '*.tsbuildinfo' -delete 2>/dev/null || true
 pnpm build
 
 # ─── Reload PM2 Processes ────────────────────────────────────
@@ -94,7 +99,7 @@ check_health() {
 }
 
 HEALTH_OK=true
-check_health "http://localhost:4000/health" "API" || HEALTH_OK=false
+check_health "http://localhost:4000/api/health" "API" || HEALTH_OK=false
 check_health "http://localhost:3002" "Web" || HEALTH_OK=false
 check_health "http://localhost:3001" "Admin" || HEALTH_OK=false
 

@@ -12,12 +12,15 @@ import {
   Palette,
 } from 'lucide-react';
 import type { WizardState, BookPreviewData } from '@kutty-story/shared';
+// Single source of truth for the locked 5-page free preview (shared with the
+// API generator + seed's isPreviewPage flags so the poller, copy, and skeleton
+// always match what the backend actually generates).
+import { PREVIEW_PAGE_COUNT } from '@kutty-story/shared';
 import { Button } from '@kutty-story/ui';
 import { BookPreview } from '@/components/book-preview';
 import { api, ensureGuestSession } from '@/lib/api';
 
 const FULL_BOOK_PAGE_COUNT = 28;
-const PREVIEW_PAGE_COUNT = 3;
 
 interface Step6Props {
   wizard: WizardState;

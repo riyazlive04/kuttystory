@@ -13,7 +13,10 @@ const DEFAULT_SETTINGS = {
   maxPreviewsPerDay: 5,
   // AI image generation (non-secret flags; the API keys live in app_secrets, encrypted)
   imageGenEnabled: false,
-  imageProvider: 'gemini' as
+  // Default to 'fal' (PuLID-Flux vector face-embedding): no per-child training,
+  // ~4c/image, fast enough for the 5-page preview in one parallel wave. Admin can
+  // switch to openai/gemini/flux-kontext/openai-fal/flux-lora anytime — all retained.
+  imageProvider: 'fal' as
     | 'gemini'
     | 'openai'
     | 'fal'
@@ -194,15 +197,15 @@ export class SettingsService {
       | 'flux-lora' =
       raw === 'openai'
         ? 'openai'
-        : raw === 'fal'
-          ? 'fal'
+        : raw === 'gemini'
+          ? 'gemini'
           : raw === 'flux-kontext'
             ? 'flux-kontext'
             : raw === 'openai-fal'
               ? 'openai-fal'
               : raw === 'flux-lora'
                 ? 'flux-lora'
-                : 'gemini';
+                : 'fal';
     const enabled = settings.imageGenEnabled === true;
     // fal-hosted providers (PuLID, Kontext, OpenAI-via-fal, LoRA) use the fal key.
     const secretKey: SecretKey =
