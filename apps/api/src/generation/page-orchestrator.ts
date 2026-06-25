@@ -257,9 +257,11 @@ async function overlayCaption(buffer: Buffer, caption: string): Promise<Buffer> 
   const padY = 30;
   const lines = wrapCaption(text, 34).slice(0, 4);
 
-  // Tall enough to fit the text AND cover the template's own caption box.
+  // Tall enough to fit the text AND fully cover the template's own caption box
+  // (which sits ≈ bottom 26%), so the face-swap path never leaks the template's
+  // placeholder name above the panel.
   const textH = lines.length * lineHeight;
-  const panelH = Math.max(textH + padY * 2, Math.round(size * 0.22));
+  const panelH = Math.max(textH + padY * 2, Math.round(size * 0.28));
   const panelY = size - panelH;
   const firstBaseline = panelY + (panelH - textH) / 2 + fontSize - 8;
 
