@@ -23,6 +23,7 @@ import {
   buildLoraPagePrompt,
 } from './lora';
 import { faceSwapIntoTemplate } from './segmind';
+import { renderStoryText, STORY_TEXT_LAYOUTS } from './story-text';
 
 /** Per-image cost estimate (cents) used for budget enforcement + logging.
  *  OpenAI runs gpt-image-1.5 at quality:'high' + input_fidelity:'high' for
@@ -433,12 +434,25 @@ async function generateAndStorePage(
 
   let squareBuffer = await toSquarePng(rawBuffer);
 
-  // Every provider now renders a text-free illustration (fal/PuLID draws fresh;
-  // the edit providers are instructed to strip the template's baked-in name).
-  // So we ALWAYS overlay the personalized caption from the story script — this
-  // guarantees the correct child name and exact story text on every page,
-  // instead of relying on the model to rewrite baked-in text.
-  squareBuffer = await overlayCaption(squareBuffer, textContent);
+  // Text handling depends on the story's source art:
+  //  • Text-layer stories (e.g. beach-adventure) ship TEXT-FREE template art, so
+  //    we render the story line — with the child's name — directly in the
+  //    template's matched style (Diffrun model). Perfect name replacement, any
+  //    length; no panel needed since there's no baked name to cover.
+  //  • Every other story still uses the opaque caption panel, which both renders
+  //    the correct name AND covers any placeholder name baked into the art.
+  const layoutCfg = STORY_TEXT_LAYOUTS[book.story.slug];
+  const pageLayout = layoutCfg?.pages[page.pageNumber];
+  if (pageLayout) {
+    squareBuffer = await renderStoryText(
+      squareBuffer,
+      textContent,
+      pageLayout,
+      layoutCfg.style,
+    );
+  } else {
+    squareBuffer = await overlayCaption(squareBuffer, textContent);
+  }
 
   const key = `generated/${book.id}/page-${page.pageNumber}.png`;
   const { url } = await storage.save(key, squareBuffer, 'image/png');

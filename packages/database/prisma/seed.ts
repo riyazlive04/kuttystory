@@ -28,6 +28,7 @@ interface StoryData {
   basePriceInr: number;
   premiumPriceInr: number;
   giftPriceInr: number;
+  pageCount: number;
   pages: PageData[];
 }
 
@@ -206,76 +207,58 @@ function buildBeachAdventurePages(): PageData[] {
     lighting: 'bright sunny day with warm golden light',
   };
 
+  // Exact story lines transcribed from the client's final "Edited" beach pages
+  // (30 pages). The art is TEXT-FREE; the name is rendered by our text-layer
+  // renderer (see story-text.ts), so {{childName}} is replaced perfectly.
+  // NOTE: pages 26/27 and 28/30 repeat their line in the client's source set —
+  // left as-is pending client confirmation.
   const pageTexts: string[] = [
     'Today is a sunny day. {{childName}} is going to the beach!',
     '{{childName}} wears a big sun hat and brings a little beach bag.',
-    'They walk to the beach together.',
-    "{{childName}} sees the big blue ocean. 'Wow!' says {{childName}}.",
+    '{{childName}} walks on the warm sand.',
+    "Squish squish! The sand feels funny on {{childName}}'s feet.",
     'Whoosh! The waves roll onto the shore.',
-    '{{childName}} feels the warm sand under their feet.',
-    '{{childName}} picks up a pretty seashell.',
-    'There are so many shells on the beach!',
-    '{{childName}} digs in the sand with a little shovel.',
+    '{{childName}} watches the big blue ocean.',
+    'Look! A little crab walks sideways.',
+    'Tap tap tap! The crab hides in the sand.',
+    '{{childName}} finds a shiny seashell.',
+    'Another shell! {{childName}} starts a shell collection.',
     'Splash splash! {{childName}} runs to the water.',
-    "The water tickles {{childName}}'s toes.",
-    '{{childName}} jumps over a small wave. Wheee!',
-    'A friendly crab says hello.',
-    '{{childName}} sees a colorful starfish.',
+    "The cool water tickles {{childName}}'s toes.",
+    'Tiny fish swim near the shore.',
+    '{{childName}} waves hello to the little fish.',
+    'A seagull flies above the beach.',
+    'Caw caw! The seagull sings loudly.',
     '{{childName}} builds a big sandcastle.',
-    'The sandcastle has a flag on top!',
-    "A seagull flies above {{childName}}'s head.",
-    '{{childName}} eats a yummy ice cream cone.',
-    "It's coconut flavor — {{childName}}'s favorite!",
+    'A tall tower goes on top!',
+    'Oh no! A wave splashes the castle.',
+    '{{childName}} laughs and builds again.',
+    'Look! A colorful kite in the sky.',
     'The kite dances in the wind.',
-    '{{childName}} watches the boats on the sea.',
-    'The sun starts to set. The sky turns orange and pink.',
-    '{{childName}} takes one more walk along the shore.',
-    '{{childName}} finds a special seashell to keep.',
+    '{{childName}} eats a yummy snack.',
+    '{{childName}} drinks cool juice and rests.',
+    'The sun starts going down.',
+    'The sky turns pink and orange.',
+    'The sky turns pink and orange.',
     '{{childName}} waves goodbye to the ocean.',
-    'Back in the car, {{childName}} holds the seashell tight.',
     'What a fun beach day!',
     '{{childName}} waves goodbye to the ocean.',
   ];
 
-  const illustrationPrompts: string[] = [
-    'A personalized child excitedly getting ready for a beach trip on a bright sunny day, blue sky with fluffy clouds, beach visible in the distance, joyful expression',
-    'A personalized child wearing an oversized cute sun hat and carrying a small colorful beach bag, standing at the doorstep ready to go, cheerful and eager',
-    'A personalized child walking along a sandy path toward the beach with a parent, palm trees lining the way, ocean sparkling in the distance',
-    'A personalized child standing at the edge of the beach seeing the vast blue ocean for the first time, eyes wide with wonder, waves gently lapping the shore',
-    'Dynamic ocean waves rolling onto a sandy beach shore, white foam patterns on golden sand, a personalized child watching excitedly from nearby',
-    'A personalized child standing barefoot on warm golden sand, wiggling toes, feeling the texture, sunny beach scene with gentle waves in the background',
-    'A personalized child bending down to pick up a beautiful spiral seashell from the sand, close-up view, gentle waves nearby, warm sunlight',
-    'A beach scene with many colorful and varied seashells scattered across the sand, a personalized child looking at them with delight, gentle waves in the background',
-    'A personalized child enthusiastically digging in the sand with a bright little shovel and bucket, sand flying playfully, beach scene with ocean behind',
-    'A personalized child running toward the ocean water with arms spread wide, water splashing around their feet, joyful expression, bright sunny beach',
-    'Close-up of a personalized child\'s feet in shallow ocean water, gentle waves washing over their toes, clear turquoise water, sandy bottom visible',
-    'A personalized child mid-jump leaping over a small ocean wave, hair flying, huge smile, sparkling water droplets in the air, dynamic and fun composition',
-    'A personalized child crouching down on the sand looking at a small friendly cartoon crab with big eyes, beach setting, both appearing to greet each other',
-    'A personalized child pointing excitedly at a bright colorful starfish in a shallow tide pool, vivid orange and purple starfish, crystal clear water',
-    'A personalized child building an impressive sandcastle on the beach, using hands and tools, the castle taking shape with towers and walls, ocean in background',
-    'A beautiful completed sandcastle with towers, a moat, and a small flag on the very top, a personalized child proudly admiring their creation, sunny beach',
-    'A seagull flying gracefully overhead with wings spread wide, a personalized child looking up and pointing at it, blue sky with scattered clouds, beach setting',
-    'A personalized child sitting on a beach towel happily eating a colorful ice cream cone, beach umbrella providing shade, ocean visible in the background',
-    'Close-up of a personalized child joyfully licking a coconut-flavored ice cream cone, eyes closed in delight, tropical beach setting with palm trees',
-    'A colorful kite with a long tail dancing and swooping in the ocean breeze against a bright blue sky, a personalized child watching from the beach below',
-    'A personalized child standing at the shore watching sailboats and small boats on the sparkling ocean, peaceful scene, afternoon light reflecting on water',
-    'A stunning beach sunset with the sky turning brilliant shades of orange, pink, and purple, a personalized child silhouetted watching the sun dip toward the horizon',
-    'A personalized child taking a peaceful walk along the shoreline during golden hour, gentle waves washing over footprints in the sand, warm glowing light',
-    'A personalized child discovering a unique and beautiful special seashell on the beach, holding it up to examine it, golden sunset light, sparkle effect on the shell',
-    'A personalized child standing at the water\'s edge waving goodbye to the ocean, sunset colors in the sky, gentle waves, bittersweet but happy expression',
-    'A personalized child sitting in the back seat of a car holding a seashell close to their chest, looking content and slightly sleepy, warm evening light through the window',
-    'A collage-style illustration of all the fun beach moments — sandcastle, seashells, waves, ice cream, kite — surrounding a happy personalized child, warm sunny theme',
-    'A personalized child waving goodbye with the ocean and beach in the background, sun low on the horizon, a trail of footprints in the sand, warm farewell scene',
-  ];
-
-  return pageTexts.map((text, i) => ({
-    pageNumber: i + 1,
-    textEnglish: text,
-    illustrationPrompt: illustrationPrompts[i],
-    styleTokens: beachStyle,
-    isCoverPage: i === 0,
-    isPreviewPage: i < 5,
-  }));
+  return pageTexts.map((text, i) => {
+    // illustrationPrompt is unused by the chosen face-swap path (the template art
+    // is fixed) but kept non-empty as a sensible fallback for prompt-based
+    // providers, derived from the page's own line.
+    const scene = text.replace(/\{\{childName\}\}/g, 'the child').trim();
+    return {
+      pageNumber: i + 1,
+      textEnglish: text,
+      illustrationPrompt: `A warm, sunny beach storybook illustration featuring a personalized child. Scene: ${scene}`,
+      styleTokens: beachStyle,
+      isCoverPage: i === 0,
+      isPreviewPage: i < 5,
+    };
+  });
 }
 
 // ─── All Stories ────────────────────────────────────────────────────────────
@@ -293,6 +276,7 @@ const stories: StoryData[] = [
     basePriceInr: 79900,
     premiumPriceInr: 139900,
     giftPriceInr: 139900,
+    pageCount: 28,
     pages: buildAbcAdventurePages(),
   },
   {
@@ -307,6 +291,7 @@ const stories: StoryData[] = [
     basePriceInr: 79900,
     premiumPriceInr: 139900,
     giftPriceInr: 139900,
+    pageCount: 28,
     pages: buildMagicalUnicornPages(),
   },
   {
@@ -321,6 +306,7 @@ const stories: StoryData[] = [
     basePriceInr: 79900,
     premiumPriceInr: 139900,
     giftPriceInr: 139900,
+    pageCount: 30,
     pages: buildBeachAdventurePages(),
   },
 ];
@@ -346,6 +332,7 @@ async function main() {
         basePriceInr: story.basePriceInr,
         premiumPriceInr: story.premiumPriceInr,
         giftPriceInr: story.giftPriceInr,
+        pageCount: story.pageCount,
         isActive: true,
         isFeatured: true,
       },
@@ -360,6 +347,7 @@ async function main() {
         basePriceInr: story.basePriceInr,
         premiumPriceInr: story.premiumPriceInr,
         giftPriceInr: story.giftPriceInr,
+        pageCount: story.pageCount,
         isActive: true,
         isFeatured: true,
       },
