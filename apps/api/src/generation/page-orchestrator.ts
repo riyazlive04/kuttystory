@@ -24,6 +24,7 @@ import {
   buildLoraPagePrompt,
 } from './lora';
 import { faceSwapIntoTemplate } from './segmind';
+import { cropToFace } from './face-crop';
 import { renderStoryText, STORY_TEXT_LAYOUTS } from './story-text';
 
 /** Per-image cost estimate (cents) used for budget enforcement + logging.
@@ -645,6 +646,24 @@ export async function generateBookPages(
       throw new Error(
         'No usable reference photo for the child. The uploaded photo could not be read — please re-upload a clear, front-facing photo.',
       );
+    }
+
+    // Crop the child's primary photo to a clean, front-facing headshot (once per
+    // book, reused for every page). A tight, background-free face is the biggest
+    // driver of swap/redraw likeness — a small face or a multi-person photo is
+    // the main reason a provider "doesn't replace the face" on some pages. Uses
+    // the fal key (Florence-2); a no-op if no fal key or no face is detected.
+    const falKey = await settings.getSecret('falApiKey');
+    if (falKey) {
+      try {
+        const cropped = await cropToFace(childRefs[0].data, falKey);
+        if (cropped !== childRefs[0].data) {
+          childRefs[0] = { data: cropped, mimeType: 'image/jpeg' };
+          logger.log(`Cropped child photo to face for book ${bookId}`);
+        }
+      } catch (err) {
+        logger.warn(`Face crop skipped for book ${bookId}: ${err}`);
+      }
     }
 
     const bookForGen = toBookForGeneration(book);
