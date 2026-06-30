@@ -44,7 +44,7 @@ export interface StoryTextStyle {
 export const DEFAULT_STORY_TEXT_STYLE: StoryTextStyle = {
   // Exact values extracted from the client's Herkules PSD text layers.
   fill: process.env.STORY_TEXT_FILL || '#0F4A7F',
-  outline: process.env.STORY_TEXT_OUTLINE || '#FFF7E8',
+  outline: process.env.STORY_TEXT_OUTLINE || '#FFFFFF',
 };
 
 // ─── Font loading (cached, OS-independent) ─────────────────────────────────
@@ -126,8 +126,8 @@ function fitText(
 ): { lines: string[]; fontSize: number } {
   const unitsPerEm = font.unitsPerEm || 1000;
   const lineFactor = 1.14;
-  const minSize = Math.round(S * 0.042);
-  let fontSize = Math.round(S * 0.08);
+  const minSize = Math.round(S * 0.04);
+  let fontSize = Math.round(S * 0.072);
   let lines = wrapToWidth(font, text, fontSize, maxWidth);
   const widest = (fs: number) =>
     lines.reduce((m, l) => Math.max(m, advance(font, l, fs)), 0);
@@ -173,7 +173,7 @@ export async function renderStoryText(
   // their half so they never run across the character.
   const isSide = layout.align !== 'center';
   const maxWidth = S * (isSide ? 0.6 : 0.86);
-  const { lines, fontSize } = fitText(font, clean, S, maxWidth, 3, S * 0.28);
+  const { lines, fontSize } = fitText(font, clean, S, maxWidth, 3, S * 0.22);
 
   const ascent = (font.ascender / unitsPerEm) * fontSize;
   const descent = (Math.abs(font.descender) / unitsPerEm) * fontSize;
@@ -210,14 +210,23 @@ export async function renderStoryText(
   });
   const glyphs = paths.join('');
 
-  // Stroke gives the crisp cream outline; the blurred copy underneath gives the
-  // soft glow; the blue fill sits on top. Same glyph paths reused per layer.
-  const strokeW = fontSize * 0.14;
-  const blur = fontSize * 0.045;
+  // Match the client's Photoshop text: a THIN light outline + soft outer glow +
+  // a subtle drop shadow (not a heavy border). Layers back-to-front:
+  //   1. drop shadow (offset dark-navy blurred copy) — depth + legibility
+  //   2. outer glow (light blurred copy)
+  //   3. thin light outline (stroke)
+  //   4. blue fill on top
+  const strokeW = fontSize * 0.08;
+  const glow = fontSize * 0.06;
+  const shDx = fontSize * 0.025;
+  const shDy = fontSize * 0.04;
   const svg = `<svg width="${S}" height="${S}" xmlns="http://www.w3.org/2000/svg">
-  <defs><filter id="g" x="-25%" y="-25%" width="150%" height="150%">
-    <feGaussianBlur stdDeviation="${blur.toFixed(1)}"/></filter></defs>
-  <g filter="url(#g)" fill="${style.outline}" stroke="${style.outline}" stroke-width="${(strokeW * 1.4).toFixed(1)}" stroke-linejoin="round">${glyphs}</g>
+  <defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${glow.toFixed(1)}"/></filter>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${(fontSize * 0.03).toFixed(1)}"/></filter>
+  </defs>
+  <g transform="translate(${shDx.toFixed(1)},${shDy.toFixed(1)})" filter="url(#sh)" fill="#08243F" opacity="0.45">${glyphs}</g>
+  <g filter="url(#glow)" fill="${style.outline}">${glyphs}</g>
   <g fill="${style.outline}" stroke="${style.outline}" stroke-width="${strokeW.toFixed(1)}" stroke-linejoin="round" stroke-linecap="round">${glyphs}</g>
   <g fill="${style.fill}">${glyphs}</g>
 </svg>`;
