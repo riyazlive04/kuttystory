@@ -42,7 +42,8 @@ export interface StoryTextStyle {
 }
 
 export const DEFAULT_STORY_TEXT_STYLE: StoryTextStyle = {
-  fill: process.env.STORY_TEXT_FILL || '#0A4A7D',
+  // Exact values extracted from the client's Herkules PSD text layers.
+  fill: process.env.STORY_TEXT_FILL || '#0F4A7F',
   outline: process.env.STORY_TEXT_OUTLINE || '#FFF7E8',
 };
 
@@ -110,19 +111,37 @@ function wrapToWidth(
   return lines;
 }
 
-/** Pick the largest font size whose wrapped text fits the width & line budget. */
+/**
+ * Pick the largest font size whose wrapped text fits the width, line budget AND
+ * a vertical height cap — so the headline stays compact (like the client's
+ * Photoshop sizing) instead of dominating the page.
+ */
 function fitText(
   font: opentype.Font,
   text: string,
-  size: number,
+  S: number,
   maxWidth: number,
   maxLines: number,
+  maxHeight: number,
 ): { lines: string[]; fontSize: number } {
-  const startSize = Math.round(size * 0.092);
-  const minSize = Math.round(size * 0.044);
-  let fontSize = startSize;
+  const unitsPerEm = font.unitsPerEm || 1000;
+  const lineFactor = 1.14;
+  const minSize = Math.round(S * 0.042);
+  let fontSize = Math.round(S * 0.08);
   let lines = wrapToWidth(font, text, fontSize, maxWidth);
-  while (fontSize > minSize && lines.length > maxLines) {
+  const widest = (fs: number) =>
+    lines.reduce((m, l) => Math.max(m, advance(font, l, fs)), 0);
+  const blockHeight = (fs: number) => {
+    const asc = (font.ascender / unitsPerEm) * fs;
+    const desc = (Math.abs(font.descender) / unitsPerEm) * fs;
+    return (lines.length - 1) * fs * lineFactor + asc + desc;
+  };
+  while (
+    fontSize > minSize &&
+    (lines.length > maxLines ||
+      widest(fontSize) > maxWidth ||
+      blockHeight(fontSize) > maxHeight)
+  ) {
     fontSize -= 2;
     lines = wrapToWidth(font, text, fontSize, maxWidth);
   }
@@ -154,11 +173,11 @@ export async function renderStoryText(
   // their half so they never run across the character.
   const isSide = layout.align !== 'center';
   const maxWidth = S * (isSide ? 0.6 : 0.86);
-  const { lines, fontSize } = fitText(font, clean, S, maxWidth, isSide ? 3 : 3);
+  const { lines, fontSize } = fitText(font, clean, S, maxWidth, 3, S * 0.28);
 
   const ascent = (font.ascender / unitsPerEm) * fontSize;
   const descent = (Math.abs(font.descender) / unitsPerEm) * fontSize;
-  const lineHeight = fontSize * 1.16;
+  const lineHeight = fontSize * 1.14;
   const blockH = (lines.length - 1) * lineHeight + ascent + descent;
 
   // First baseline from the requested vertical anchor.
@@ -181,15 +200,20 @@ export async function renderStoryText(
     else if (layout.align === 'right') x = S - marginX - w;
     else x = (S - w) / 2;
     const y = firstBaseline + i * lineHeight;
-    const d = font.getPath(line, x, y, fontSize).toPathData(2);
-    paths.push(`<path d="${d}"/>`);
+    // Emit ONE <path> per glyph. librsvg silently truncates a very long single
+    // path `d` when multiple are present (it would drop the tail of a line);
+    // short per-glyph paths always render in full.
+    for (const gp of font.getPaths(line, x, y, fontSize)) {
+      const d = gp.toPathData(2);
+      if (d) paths.push(`<path d="${d}"/>`);
+    }
   });
   const glyphs = paths.join('');
 
   // Stroke gives the crisp cream outline; the blurred copy underneath gives the
   // soft glow; the blue fill sits on top. Same glyph paths reused per layer.
-  const strokeW = fontSize * 0.16;
-  const blur = fontSize * 0.05;
+  const strokeW = fontSize * 0.14;
+  const blur = fontSize * 0.045;
   const svg = `<svg width="${S}" height="${S}" xmlns="http://www.w3.org/2000/svg">
   <defs><filter id="g" x="-25%" y="-25%" width="150%" height="150%">
     <feGaussianBlur stdDeviation="${blur.toFixed(1)}"/></filter></defs>
