@@ -8,6 +8,11 @@ export type ImageProvider =
   | 'flux-kontext'
   | 'openai-fal'
   | 'flux-lora'
+  // Qwen-Image-Edit-2511 (fal-hosted, 20B instruction editor): edits the template
+  // page in place — redraws ONLY the child's face/hair from the photo, keeping the
+  // scene. Like flux-kontext it takes the template FIRST, then the child photo(s).
+  // Fast (~5-8s), cheap (~$0.03/img) and reliable; routed through this module.
+  | 'qwen-edit'
   // Segmind FaceSwap Comic: swaps the child's face INTO the story template,
   // preserving the hand-illustrated art. Handled in apps/api (segmind.ts), not
   // through generatePersonalizedImage — it's a face-swap, not a prompt-gen.
@@ -56,6 +61,11 @@ export interface GenerateImageOptions {
    * 'fal-ai/gpt-image-2/edit'. Only used when provider === 'openai-fal'.
    */
   openaiFalModel?: string;
+  /**
+   * fal.ai Qwen-Image-Edit-2511 endpoint id. Defaults to
+   * 'fal-ai/qwen-image-edit-2511'. Only used when provider === 'qwen-edit'.
+   */
+  qwenEditModel?: string;
   timeoutMs?: number;
 }
 
@@ -111,6 +121,12 @@ export async function generatePersonalizedImage(
       generateWithOpenAIFal(opts),
       timeoutMs,
       'OpenAI-via-fal image generation',
+    );
+  } else if (opts.provider === 'qwen-edit') {
+    buffer = await withTimeout(
+      generateWithQwenEdit(opts),
+      timeoutMs,
+      'Qwen-Image-Edit image generation',
     );
   } else {
     buffer = await withTimeout(generateWithGemini(opts), timeoutMs, 'Gemini image generation');
@@ -207,6 +223,7 @@ async function generateWithOpenAI(opts: GenerateImageOptions): Promise<Buffer> {
 const FAL_DEFAULT_MODEL = 'fal-ai/flux-pulid';
 const FAL_KONTEXT_MODEL = 'fal-ai/flux-pro/kontext/multi';
 const OPENAI_FAL_MODEL = 'fal-ai/gpt-image-2/edit';
+const QWEN_EDIT_MODEL = 'fal-ai/qwen-image-edit-2511';
 
 /** Map our square size to fal's image_size enum. */
 function falImageSize(size?: string): string {
@@ -385,6 +402,68 @@ async function generateWithOpenAIFal(opts: GenerateImageOptions): Promise<Buffer
   const imgRes = await fetch(url);
   if (!imgRes.ok) {
     throw new Error(`OpenAI-via-fal image fetch failed: ${imgRes.status}`);
+  }
+  return Buffer.from(await imgRes.arrayBuffer());
+}
+
+/**
+ * Edit-in-place personalization via fal.ai Qwen-Image-Edit-2511. Same edit
+ * semantics as the FLUX Kontext path — the template illustration is the FIRST
+ * image and the child's photo(s) follow, and `prompt` instructs the model to
+ * redraw ONLY the child's face/hair while preserving the scene. Qwen is a strong
+ * instruction editor (~5-8s/image, ~$0.03/image) but will drift on a loose
+ * prompt, so the caller must pass a strict edit prompt (buildQwenEditPrompt).
+ * `sync_mode: true` returns the image inline; we fall back to fetching a URL.
+ */
+async function generateWithQwenEdit(opts: GenerateImageOptions): Promise<Buffer> {
+  const model = opts.qwenEditModel || QWEN_EDIT_MODEL;
+  const refs = opts.referenceImages ?? [];
+  if (refs.length === 0) {
+    throw new Error(
+      'Qwen-Image-Edit requires the template illustration (and the child photo) as reference images',
+    );
+  }
+  const imageUrls = refs.map(
+    (ref) => `data:${ref.mimeType};base64,${ref.data.toString('base64')}`,
+  );
+
+  const res = await fetch(`https://fal.run/${model}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${opts.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      prompt: opts.prompt,
+      image_urls: imageUrls,
+      num_images: 1,
+      output_format: 'png',
+      // Inline the result as a data URI (no extra hosted-image fetch). Use fal's
+      // default inference steps — the PoC proved that's both fast (~5-8s) and
+      // high quality; faithfulness to the scene comes from the strict prompt,
+      // not from extra steps (which only slowed each call to ~60s).
+      sync_mode: true,
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`fal ${model} failed: ${res.status} ${detail.slice(0, 300)}`);
+  }
+
+  const json: any = await res.json();
+  const url: string | undefined = json?.images?.[0]?.url;
+  if (!url) {
+    throw new Error('Qwen-Image-Edit returned no image data');
+  }
+
+  const comma = url.indexOf(',');
+  if (url.startsWith('data:') && comma >= 0) {
+    return Buffer.from(url.slice(comma + 1), 'base64');
+  }
+  const imgRes = await fetch(url);
+  if (!imgRes.ok) {
+    throw new Error(`Qwen-Image-Edit image fetch failed: ${imgRes.status}`);
   }
   return Buffer.from(await imgRes.arrayBuffer());
 }

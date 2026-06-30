@@ -11,6 +11,7 @@ import {
   buildIllustrationPrompt,
   buildFalIllustrationPrompt,
   buildPersonalizationEditPrompt,
+  buildQwenEditPrompt,
   buildNegativePrompt,
   personalizeText,
   generatePersonalizedImage,
@@ -44,6 +45,9 @@ export const COST_PER_IMAGE_CENTS: Record<ImageProvider, number> = {
   // Segmind FaceSwap Comic ≈ $0.065/image → 28 pages ≈ 182c. The template-
   // preserving face-swap path (default).
   'segmind-faceswap': 7,
+  // Qwen-Image-Edit-2511 (fal) ≈ $0.03/image → 28 pages ≈ 84c. Edits the
+  // template in place; fast + cheap + reliable.
+  'qwen-edit': 4,
 };
 
 /** Free preview is LOCKED to the first N pages (5). The single source of truth
@@ -201,6 +205,17 @@ interface PageTemplateLike {
   styleTokens: unknown;
 }
 
+/** Cap an image's longest side (default 1024) for the Qwen edit path. Qwen
+ *  processes at the input resolution, so full-res templates (1600–2048px) make
+ *  each call ~10x slower (~65s vs ~6s) and the output (and cost, billed per
+ *  output megapixel) balloon. 1024 matches the fast, validated PoC settings. */
+async function capForQwen(buffer: Buffer, maxDim = 1024): Promise<Buffer> {
+  return sharp(buffer)
+    .resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 90 })
+    .toBuffer();
+}
+
 /** Trim a generated image to a clean 1024x1024 square (no stray padding/bars). */
 async function toSquarePng(buffer: Buffer): Promise<Buffer> {
   return sharp(buffer)
@@ -337,12 +352,28 @@ async function generateAndStorePage(
   let referenceImages: ReferenceImage[];
 
   if (baseImage) {
-    prompt = buildPersonalizationEditPrompt({
-      childName: book.child.name,
-      caption: captionEnglish,
-    });
+    // Qwen-Image-Edit needs a much stricter edit instruction than the OpenAI/
+    // Kontext path (otherwise it duplicates the child / drifts the scene).
+    prompt =
+      provider === 'qwen-edit'
+        ? buildQwenEditPrompt({ childName: book.child.name })
+        : buildPersonalizationEditPrompt({
+            childName: book.child.name,
+            caption: captionEnglish,
+          });
     // Template first (the image to edit), then the child's photo(s).
     referenceImages = [baseImage, ...childRefs];
+    // Qwen edits at the input resolution — downscale to 1024 so each page stays
+    // fast (~6s) and cheap (billed per output megapixel). The final page is
+    // re-squared to 1024 by toSquarePng anyway, so no visible quality loss.
+    if (provider === 'qwen-edit') {
+      referenceImages = await Promise.all(
+        referenceImages.map(async (ref) => ({
+          data: await capForQwen(ref.data),
+          mimeType: 'image/jpeg',
+        })),
+      );
+    }
   } else {
     // fal/PuLID fresh-generation path: describe the whole cohesive cartoon +
     // scene (no template to edit). Richer, identity-aware prompt mirroring the

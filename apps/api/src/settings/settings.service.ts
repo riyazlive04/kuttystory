@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS = {
     | 'flux-kontext'
     | 'openai-fal'
     | 'flux-lora'
+    | 'qwen-edit'
     | 'segmind-faceswap',
 };
 
@@ -192,6 +193,7 @@ export class SettingsService {
       | 'flux-kontext'
       | 'openai-fal'
       | 'flux-lora'
+      | 'qwen-edit'
       | 'segmind-faceswap';
     apiKey: string | null;
     enabled: boolean;
@@ -205,6 +207,7 @@ export class SettingsService {
       | 'flux-kontext'
       | 'openai-fal'
       | 'flux-lora'
+      | 'qwen-edit'
       | 'segmind-faceswap' =
       raw === 'gemini'
         ? 'gemini'
@@ -216,9 +219,11 @@ export class SettingsService {
               ? 'openai-fal'
               : raw === 'flux-lora'
                 ? 'flux-lora'
-                : raw === 'segmind-faceswap'
-                  ? 'segmind-faceswap'
-                  : 'openai';
+                : raw === 'qwen-edit'
+                  ? 'qwen-edit'
+                  : raw === 'segmind-faceswap'
+                    ? 'segmind-faceswap'
+                    : 'openai';
     const enabled = settings.imageGenEnabled === true;
     // Each provider family draws from its own stored secret.
     const secretKey: SecretKey =
@@ -226,11 +231,12 @@ export class SettingsService {
         ? 'segmindApiKey'
         : provider === 'openai'
           ? 'openaiApiKey'
-          : // fal-hosted providers (PuLID, Kontext, OpenAI-via-fal, LoRA) share the fal key.
+          : // fal-hosted providers (PuLID, Kontext, OpenAI-via-fal, LoRA, Qwen) share the fal key.
             provider === 'fal' ||
               provider === 'flux-kontext' ||
               provider === 'openai-fal' ||
-              provider === 'flux-lora'
+              provider === 'flux-lora' ||
+              provider === 'qwen-edit'
             ? 'falApiKey'
             : 'geminiApiKey';
     const apiKey = await this.getSecret(secretKey);

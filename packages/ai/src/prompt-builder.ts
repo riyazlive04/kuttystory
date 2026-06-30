@@ -50,6 +50,31 @@ export function buildPersonalizationEditPrompt(opts: {
 }
 
 /**
+ * Edit-in-place personalization for Qwen-Image-Edit-2511 (fal-hosted, 20B
+ * instruction editor). Like the OpenAI/Kontext edit path it takes the template
+ * page as the FIRST image and the child's photo(s) after it.
+ *
+ * Qwen is a powerful FULL-SCENE redrawer, so a loose prompt makes it drift: in
+ * the PoC it duplicated the child (drew a second floating head), mangled hands,
+ * and swapped clothing/background. This prompt is deliberately strict — it
+ * targets each of those failure modes explicitly: exactly ONE child, photos are
+ * a face reference ONLY (never pasted in), edit ONLY the face + hair, and leave
+ * hands/body/clothing/scene pixel-for-pixel untouched.
+ */
+export function buildQwenEditPrompt(opts: { childName: string }): string {
+  const { childName } = opts;
+  return [
+    `The FIRST image is the picture to edit: a children's storybook cartoon scene that contains exactly ONE child. The other image(s) are photos of a real child named ${childName}, given ONLY as a face-likeness reference.`,
+    `Edit the FIRST image in place. Change ONLY that one child's face and hair so they clearly resemble ${childName} — same face shape, eyes, eyebrows, nose, skin tone and hairstyle — re-drawn in the EXACT same hand-drawn cartoon style as the original art (soft cel shading, clean line work, child-like proportions).`,
+    'The edited face must stay a cartoon: never photographic, never a pasted or collaged cut-out of the photo, no real skin texture, no photo lighting.',
+    'KEEP EVERYTHING ELSE PIXEL-FOR-PIXEL IDENTICAL to the FIRST image: the same single child, the same pose, body, arms, hands, fingers, clothing, props, background, colours, lighting, composition and art style.',
+    'STRICT — do NOT add, duplicate, insert or invent any new person, second child, extra face, extra head or extra body. There must remain EXACTLY ONE child in the scene.',
+    'Do NOT paste, overlay or place the reference photo anywhere in the picture. Do NOT redraw, move or distort the hands, fingers or body. Do NOT add, remove or change any text, letters or names. Do NOT change the image dimensions.',
+    'Output a single cohesive cartoon illustration, the same size and composition as the FIRST image, with only the one child\'s face and hair changed.',
+  ].join('\n');
+}
+
+/**
  * Fresh-generation personalization for fal.ai PuLID-Flux. Unlike the OpenAI/Gemini
  * edit path (which mutates an existing template), fal draws a brand-new illustration
  * from this text prompt + the child's reference face (identity locked by PuLID). So

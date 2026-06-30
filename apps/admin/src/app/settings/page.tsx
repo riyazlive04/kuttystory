@@ -31,6 +31,7 @@ interface SiteSettings {
     | 'flux-kontext'
     | 'openai-fal'
     | 'flux-lora'
+    | 'qwen-edit'
     | 'segmind-faceswap';
 }
 
@@ -485,6 +486,7 @@ export default function SettingsPage() {
             {(
               [
                 'segmind-faceswap',
+                'qwen-edit',
                 'gemini',
                 'openai',
                 'fal',
@@ -505,17 +507,19 @@ export default function SettingsPage() {
               >
                 {p === 'segmind-faceswap'
                   ? 'Segmind FaceSwap (template, recommended)'
-                  : p === 'gemini'
-                    ? 'Google Gemini'
-                    : p === 'openai'
-                      ? 'OpenAI'
-                      : p === 'fal'
-                        ? 'Fal.ai (PuLID)'
-                        : p === 'flux-kontext'
-                          ? 'FLUX.1 Kontext'
-                          : p === 'openai-fal'
-                            ? 'OpenAI via fal (gpt-image-2)'
-                            : 'FLUX LoRA (per-child)'}
+                  : p === 'qwen-edit'
+                    ? 'Qwen Image-Edit (template, fast)'
+                    : p === 'gemini'
+                      ? 'Google Gemini'
+                      : p === 'openai'
+                        ? 'OpenAI'
+                        : p === 'fal'
+                          ? 'Fal.ai (PuLID)'
+                          : p === 'flux-kontext'
+                            ? 'FLUX.1 Kontext'
+                            : p === 'openai-fal'
+                              ? 'OpenAI via fal (gpt-image-2)'
+                              : 'FLUX LoRA (per-child)'}
                 {settings.imageProvider === p && (
                   <CheckCircle className="ml-2 inline h-3.5 w-3.5" />
                 )}
