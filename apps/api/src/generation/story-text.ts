@@ -164,15 +164,19 @@ export async function renderStoryText(
   if (!clean) return image;
 
   const meta = await sharp(image).metadata();
-  const S = meta.width && meta.height ? Math.min(meta.width, meta.height) : 1024;
+  const Wd = meta.width || 1024;
+  const Ht = meta.height || 1024;
+  // Font size + the height cap key off the SHORT side so text stays a sensible
+  // size on both square (beach) and wide 2-page-spread (unicorn/abc) pages.
+  const S = Math.min(Wd, Ht);
 
   const font = loadFont();
   const unitsPerEm = font.unitsPerEm || 1000;
 
-  // Center-aligned lines may span most of the page; side-hugging lines keep to
-  // their half so they never run across the character.
+  // Center-aligned lines may span most of the page width; side-hugging lines keep
+  // to a portion so they never run across the character.
   const isSide = layout.align !== 'center';
-  const maxWidth = S * (isSide ? 0.6 : 0.86);
+  const maxWidth = Wd * (isSide ? 0.6 : 0.86);
   const { lines, fontSize } = fitText(font, clean, S, maxWidth, 3, S * 0.22);
 
   const ascent = (font.ascender / unitsPerEm) * fontSize;
@@ -180,47 +184,47 @@ export async function renderStoryText(
   const lineHeight = fontSize * 1.14;
   const blockH = (lines.length - 1) * lineHeight + ascent + descent;
 
-  // First baseline from the requested vertical anchor.
-  const marginY = S * 0.04;
+  // First baseline from the requested vertical anchor (fraction of page HEIGHT).
+  const marginY = Ht * 0.04;
   let firstBaseline: number;
   if (layout.anchor === 'bottom') {
-    const bottomEdge = Math.min(layout.yFrac * S, S - marginY);
+    const bottomEdge = Math.min(layout.yFrac * Ht, Ht - marginY);
     firstBaseline = bottomEdge - blockH + ascent;
   } else {
-    const topEdge = Math.max(layout.yFrac * S, marginY);
+    const topEdge = Math.max(layout.yFrac * Ht, marginY);
     firstBaseline = topEdge + ascent;
   }
 
-  const marginX = S * 0.07;
-  const paths: string[] = [];
-  lines.forEach((line, i) => {
-    const w = advance(font, line, fontSize);
-    let x: number;
-    if (layout.align === 'left') x = marginX;
-    else if (layout.align === 'right') x = S - marginX - w;
-    else x = (S - w) / 2;
-    const y = firstBaseline + i * lineHeight;
-    // Emit ONE <path> per glyph. librsvg silently truncates a very long single
-    // path `d` when multiple are present (it would drop the tail of a line);
-    // short per-glyph paths always render in full.
-    for (const gp of font.getPaths(line, x, y, fontSize)) {
-      const d = gp.toPathData(2);
-      if (d) paths.push(`<path d="${d}"/>`);
-    }
-  });
-  const glyphs = paths.join('');
+  const marginX = Wd * 0.07;
 
-  // Match the client's Photoshop text: a THIN light outline + soft outer glow +
-  // a subtle drop shadow (not a heavy border). Layers back-to-front:
-  //   1. drop shadow (offset dark-navy blurred copy) — depth + legibility
-  //   2. outer glow (light blurred copy)
-  //   3. thin light outline (stroke)
-  //   4. blue fill on top
+  // Style (matches the client's Photoshop text): drop shadow + soft outer glow +
+  // thin light outline + blue fill, back-to-front.
   const strokeW = fontSize * 0.08;
   const glow = fontSize * 0.06;
   const shDx = fontSize * 0.025;
   const shDy = fontSize * 0.04;
-  const svg = `<svg width="${S}" height="${S}" xmlns="http://www.w3.org/2000/svg">
+  // Padding around each line canvas so the stroke/glow/shadow don't clip.
+  const pad = Math.ceil(fontSize * 0.4);
+
+  // Render EACH LINE in its OWN small canvas, then composite with sharp.
+  // Rasterizing a whole multi-line block in one librsvg pass intermittently DROPS
+  // a glyph (e.g. "Yahya" → "Yah a") — a librsvg fragility that shows up with
+  // wrapped lines / right alignment. Single-line rasters never drop, and sharp
+  // positions them precisely, so this is robust for ANY name or text length.
+  const lineLayers = await Promise.all(
+    lines.map(async (line, i) => {
+      const lineW = advance(font, line, fontSize);
+      const canvasW = Math.ceil(lineW + pad * 2);
+      const canvasH = Math.ceil(ascent + descent + pad * 2);
+      const baseX = pad;
+      const baseY = pad + ascent;
+      const paths: string[] = [];
+      for (const gp of font.getPaths(line, baseX, baseY, fontSize)) {
+        const d = gp.toPathData(2);
+        if (d) paths.push(`<path d="${d}"/>`);
+      }
+      const glyphs = paths.join('');
+      const svg = `<svg width="${canvasW}" height="${canvasH}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${glow.toFixed(1)}"/></filter>
     <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${(fontSize * 0.03).toFixed(1)}"/></filter>
@@ -230,11 +234,22 @@ export async function renderStoryText(
   <g fill="${style.outline}" stroke="${style.outline}" stroke-width="${strokeW.toFixed(1)}" stroke-linejoin="round" stroke-linecap="round">${glyphs}</g>
   <g fill="${style.fill}">${glyphs}</g>
 </svg>`;
+      const raster = await sharp(Buffer.from(svg)).png().toBuffer();
 
-  return sharp(image)
-    .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
-    .png()
-    .toBuffer();
+      let gx: number;
+      if (layout.align === 'left') gx = marginX;
+      else if (layout.align === 'right') gx = Wd - marginX - lineW;
+      else gx = (Wd - lineW) / 2;
+      const by = firstBaseline + i * lineHeight;
+      return {
+        input: raster,
+        left: Math.max(0, Math.round(gx - baseX)),
+        top: Math.max(0, Math.round(by - baseY)),
+      };
+    }),
+  );
+
+  return sharp(image).composite(lineLayers).png().toBuffer();
 }
 
 // ─── Per-story layout config ──────────────────────────────────────────────────
