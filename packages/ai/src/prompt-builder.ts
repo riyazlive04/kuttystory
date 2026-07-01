@@ -36,16 +36,19 @@ export function buildPersonalizationEditPrompt(opts: {
   caption?: string;
 }): string {
   const { childName } = opts;
+  // IMPORTANT: this prompt must FORCE a face replacement. A softer "redraw so it
+  // resembles X while keeping everything identical" makes gpt-image preserve the
+  // template's original face (it reads "keep identical" as "keep the face too"),
+  // so the child never appears. The explicit "REPLACE… do NOT keep the original
+  // face" wording is what actually triggers the swap (validated on the beach
+  // pages: soft wording → template face unchanged; this wording → child's face).
   return [
-    `The FIRST image is a children's storybook illustration drawn in a soft, hand-painted cartoon style. The remaining image(s) are reference photos of a real child named ${childName}.`,
-    `Redraw the character's face so it resembles ${childName}, while keeping the ENTIRE character — face, head, hair and body — as ONE cohesive hand-illustrated cartoon in exactly the same art style as the rest of the picture.`,
-    'FACE — critical rules:',
-    `- Use the photo ONLY as a likeness reference. Capture ${childName}'s recognisable features: face shape, eye colour, skin tone, hairstyle and any glasses.`,
-    '- RE-DRAW the face fully as cartoon art: smooth illustrated shading, soft clean line work, slightly stylised child-like proportions and larger expressive cartoon eyes — exactly like the body and the other children in the scene.',
-    '- The face must NOT look photographic or realistic. Do NOT paste, collage, or blend the actual photograph in. No real skin texture, no photo lighting, no cut-out look.',
-    '- The head and body must match perfectly in art style, proportion, line weight, colour and lighting, so it clearly looks like a single cartoon character — not a real head on a drawn body.',
-    'TEXT — remove ALL text from the illustration: any existing title, caption, name, words, letters, speech bubbles or signs. Leave those areas as clean illustration (extend the background/scene naturally). Do NOT draw any new text or names. The story caption is added separately afterwards.',
-    'Keep everything else identical: pose, body, clothing, scene, background, props, colours, lighting, composition and art style. Do not add borders or change the dimensions. Output a single cohesive cartoon illustration with NO text at the same size as the FIRST image.',
+    `The FIRST image is a children's storybook illustration in a soft hand-drawn cartoon style. The remaining image(s) are photos of a real child named ${childName}. REPLACE the face of the cartoon character in the first image with ${childName}'s face from the photo.`,
+    `- Re-draw the character's face — face shape, eyes, eyebrows, nose, mouth, skin tone and hairstyle — to clearly and recognisably match ${childName} in the photo, rendered in the EXACT same hand-drawn cartoon style as the rest of the illustration (soft cel shading, clean line work, child-like proportions, larger expressive cartoon eyes).`,
+    `- Do NOT keep the original cartoon character's face. The new face must look like ${childName}.`,
+    '- The face must be hand-drawn CARTOON art, never photographic: do NOT paste, collage or blend the actual photo in — no real skin texture, no photo lighting, no cut-out look. Head and body must read as one cohesive cartoon character.',
+    'TEXT — remove ALL text from the illustration (any existing title, caption, name, letters, speech bubbles or signs) and extend the art naturally. Do NOT draw any new text or names; the story caption is added separately afterwards.',
+    'Keep the pose, body, hands, clothing, scene, background, props, colours, lighting and composition the same. Do not add borders or change the dimensions. Output a single cohesive cartoon illustration with NO text at the same size as the FIRST image.',
   ].join('\n');
 }
 

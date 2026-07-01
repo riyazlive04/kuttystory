@@ -33,8 +33,10 @@ import { renderStoryText, STORY_TEXT_LAYOUTS } from './story-text';
  *  MAX_GENERATION_COST_PER_BOOK_CENTS (800) with regen headroom. */
 export const COST_PER_IMAGE_CENTS: Record<ImageProvider, number> = {
   gemini: 4,
-  // OpenAI gpt-image at quality:'medium' ≈ $0.04/image (vs ~$0.25 at 'high').
-  openai: 5,
+  // OpenAI gpt-image edit at quality:'medium' ≈ $0.07–0.13/image once the two
+  // input images (template + child photo) are counted — higher than the raw
+  // output-token cost. 12c keeps the per-book budget reservation realistic.
+  openai: 12,
   // fal PuLID-Flux ≈ $0.033/image (1MP) → 28 pages ≈ 92c, well under the cap.
   fal: 4,
   // FLUX.1 Kontext [pro] multi ≈ $0.04/image → 28 pages ≈ 112c.
