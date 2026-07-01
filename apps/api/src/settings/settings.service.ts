@@ -13,6 +13,12 @@ const DEFAULT_SETTINGS = {
   maxPreviewsPerDay: 5,
   // AI image generation (non-secret flags; the API keys live in app_secrets, encrypted)
   imageGenEnabled: false,
+  // Admin-editable face-swap / edit instruction. EMPTY = use the built-in default
+  // prompt. When set, it overrides the prompt for the template-edit providers
+  // (nano-banana-redraw, openai, gemini, flux-kontext) so the prompt can be tuned
+  // with no code change. Qwen keeps its own strict prompt; face-swap/fresh-gen
+  // providers (segmind, fal, flux-lora) don't use this text prompt.
+  personalizationPrompt: '',
   // Default to 'segmind-faceswap' (FaceSwap Comic): swaps the child's real face
   // INTO the hand-illustrated template, preserving the painterly storybook art —
   // the Diffrun-style template face-swap, validated to keep the child's likeness

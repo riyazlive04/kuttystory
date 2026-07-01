@@ -331,6 +331,7 @@ async function generateAndStorePage(
   loraUrl?: string,
   loraTrigger?: string,
   characterSheet?: ReferenceImage,
+  customPrompt?: string,
 ): Promise<{
   imageUrl: string;
   prompt: string;
@@ -372,15 +373,19 @@ async function generateAndStorePage(
         'nano-banana-redraw needs the story template page as the first reference, but it could not be loaded.',
       );
     }
-    prompt = buildNanoBananaRedrawPrompt();
+    // Admin-set prompt (from settings) wins; else the built-in default.
+    prompt = customPrompt || buildNanoBananaRedrawPrompt();
     referenceImages = [baseImage, ...childRefs];
   } else if (baseImage) {
     // Qwen-Image-Edit needs a much stricter edit instruction than the OpenAI/
-    // Kontext path (otherwise it duplicates the child / drifts the scene).
+    // Kontext path (otherwise it duplicates the child / drifts the scene), so it
+    // is NOT overridable by the admin prompt. The OpenAI/Gemini/Kontext edit path
+    // uses the admin prompt when set, else the built-in default.
     prompt =
       provider === 'qwen-edit'
         ? buildQwenEditPrompt({ childName: book.child.name })
-        : buildPersonalizationEditPrompt({
+        : customPrompt ||
+          buildPersonalizationEditPrompt({
             childName: book.child.name,
             caption: captionEnglish,
           });
@@ -617,6 +622,11 @@ export async function generateBookPages(
       );
     }
 
+    // Optional admin-set prompt override (empty = built-in default). Applies to
+    // the template-edit providers (nano-banana-redraw / openai / gemini / kontext).
+    const allSettings = await settings.getSettings();
+    const customPrompt = String(allSettings.personalizationPrompt || '').trim();
+
     await db.book.update({
       where: { id: bookId },
       data: { status: runningStatus },
@@ -836,6 +846,7 @@ export async function generateBookPages(
                 loraUrl,
                 loraTrigger,
                 characterSheet,
+                customPrompt,
               );
             },
             `page ${page.pageNumber}`,

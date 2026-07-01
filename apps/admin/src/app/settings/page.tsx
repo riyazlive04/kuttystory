@@ -34,6 +34,7 @@ interface SiteSettings {
     | 'qwen-edit'
     | 'segmind-faceswap'
     | 'nano-banana-redraw';
+  personalizationPrompt: string;
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -46,6 +47,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   maxPreviewsPerDay: 5,
   imageGenEnabled: false,
   imageProvider: 'segmind-faceswap',
+  personalizationPrompt: '',
 };
 
 type SecretStatus = {
@@ -530,6 +532,44 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Face-swap / edit prompt override */}
+        <div className="border-b py-4">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-sm font-medium">Face-swap prompt</p>
+            <span className="text-xs text-[hsl(var(--muted-foreground))]">
+              {settings.personalizationPrompt?.trim()
+                ? 'Custom (overrides default)'
+                : 'Using built-in default'}
+            </span>
+          </div>
+          <p className="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
+            Instruction sent to the AI for Nano Banana / OpenAI / Gemini / Kontext.
+            Leave blank to use the built-in default. Applies to newly generated
+            pages (regenerate a book to see changes). The template is the FIRST
+            image and the child&apos;s photo is the SECOND.
+          </p>
+          <textarea
+            value={settings.personalizationPrompt}
+            onChange={(e) =>
+              updateSetting('personalizationPrompt', e.target.value)
+            }
+            rows={5}
+            placeholder={
+              'Leave blank for the default, e.g.:\nI want the face of the first photo replaced with the face of the child in the second image, retaining the face position as well.\nKeep everything else in the first image exactly the same.\nDo not add any text.'
+            }
+            className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs leading-relaxed focus:border-brand-500 focus:outline-none"
+          />
+          {settings.personalizationPrompt?.trim() && (
+            <button
+              type="button"
+              onClick={() => updateSetting('personalizationPrompt', '')}
+              className="mt-1.5 text-xs font-medium text-brand-600 hover:underline"
+            >
+              Reset to built-in default
+            </button>
+          )}
         </div>
 
         {/* API key inputs */}
