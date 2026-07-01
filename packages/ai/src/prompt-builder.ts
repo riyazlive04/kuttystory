@@ -146,8 +146,12 @@ export function buildCharacterSheetPrompt(opts: {
 export function buildNanoBananaRedrawPrompt(): string {
   return [
     'The FIRST image is a children\'s storybook page to edit. The SECOND image is the exact character to use (a reference of one child). Any further images are extra photos of that same child for likeness only.',
-    'Replace the child in the FIRST image with the character shown in the SECOND image so they clearly look like the same child, re-drawn in the FIRST image\'s exact art style.',
-    'Keep the background, composition, colours, lighting and art style of the FIRST image completely unchanged. Adapt ONLY the character\'s pose to fit the scene naturally.',
+    'Re-draw the child in the FIRST image so their face, hair, skin tone and features clearly match the reference child, keeping the FIRST image\'s exact hand-drawn art style, line work and shading.',
+    // PRESERVE the pose — do NOT "adapt" it. The old wording let the model rotate
+    // the head to show the face (e.g. a boy looking sideways/away came out facing
+    // back at the viewer). The redraw must keep the template's exact orientation.
+    'PRESERVE THE POSE EXACTLY: keep the child\'s body position, head angle and facing / viewing direction identical to the FIRST image. If the child is turned away, seen from behind, in profile, looking to the side or looking down, KEEP that exact orientation — do NOT rotate or turn the head toward the viewer, and do NOT reveal, straighten or re-centre the face.',
+    'Keep the background, composition, colours, lighting and art style completely unchanged. Change ONLY the child\'s facial features and hair to match the reference; change nothing else about the pose or scene.',
     'Exactly one child in the scene. Never paste or overlay a photo; the child must stay a hand-drawn cartoon.',
     'Do not add, remove or change any text, letters, words or captions.',
   ].join('\n');
