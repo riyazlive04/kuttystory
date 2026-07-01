@@ -35,21 +35,19 @@ export function buildPersonalizationEditPrompt(opts: {
   /** Retained for API compatibility; text is overlaid separately, not drawn. */
   caption?: string;
 }): string {
-  const { childName } = opts;
-  // IMPORTANT — likeness over style. An earlier version forced "hand-drawn
-  // CARTOON art, never photographic, do NOT paste the photo, no real skin
-  // texture" — that clause STRIPPED the exact likeness and produced a generic
-  // cartoon child (owner: "not my kid"). The owner gets a recognisable result
-  // prompting ChatGPT directly precisely because they DON'T restrict it. So we
-  // mirror that: ask for the child's EXACT, recognisable face and let the model
-  // blend it, without forbidding realism. Keep the "REPLACE the face / do NOT
-  // keep the original" wording (that's what triggers the swap at all).
+  // Keep this SHORT and direct. The owner proved in ChatGPT that a one-line
+  // request ("replace the face of the first photo with the face of the child in
+  // the second image") gives a recognisable, well-blended result — while every
+  // elaborate/verbose/"must be cartoon" version we tried either kept the template
+  // face or produced a generic child. gpt-image does face-replacement best with a
+  // minimal instruction; over-specifying dilutes it. Template is the FIRST image,
+  // child photo the SECOND (that's the order the orchestrator sends them). The
+  // childName is intentionally unused — the ChatGPT prompt that worked has no name.
+  void opts;
   return [
-    `The FIRST image is a children's storybook illustration. The remaining image(s) are photos of a real child named ${childName}. REPLACE the face of the character in the first image with ${childName}'s real face from the photo.`,
-    `- Make the face look EXACTLY like ${childName} — capture their precise, recognisable features: eye shape and colour, eyebrows, nose, mouth, face shape, skin tone and hairstyle, so the result is immediately recognisable as this specific child (not a generic child).`,
-    `- Do NOT keep the original character's face. Blend ${childName}'s face naturally into the illustration so it sits believably on the character.`,
-    'TEXT — remove ALL text from the illustration (any existing title, caption, name, letters, speech bubbles or signs) and extend the art naturally. Do NOT draw any new text or names; the story caption is added separately afterwards.',
-    'Keep the pose, body, hands, clothing, scene, background, props, colours, lighting and composition the same. Do not add borders or change the dimensions. Output a single image with NO text at the same size as the FIRST image.',
+    'Replace the face of the child in the FIRST image with the face of the child in the SECOND image.',
+    'Keep everything else in the first image exactly the same — pose, body, clothing, scene, background, colours, lighting and art style.',
+    'Do not add any text, letters or captions.',
   ].join('\n');
 }
 
