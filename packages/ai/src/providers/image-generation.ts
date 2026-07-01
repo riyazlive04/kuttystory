@@ -38,7 +38,7 @@ export interface GenerateImageOptions {
   referenceImages?: ReferenceImage[];
   geminiModel?: string;
   openaiModel?: string;
-  size?: '1024x1024' | '1024x1536' | '1536x1024';
+  size?: '1024x1024' | '1024x1536' | '1536x1024' | 'auto';
   /**
    * How hard gpt-image-1 works to preserve facial features from the input
    * photo(s). 'high' is essential for recognizable personalization (it's what
@@ -241,42 +241,116 @@ async function generateWithNanoBananaPro(opts: GenerateImageOptions): Promise<Bu
   throw new Error('Nano Banana Pro returned no image data');
 }
 
+const OPENAI_FALLBACK_MODEL = 'gpt-image-1';
+// Once we learn (from a live error) that the configured model isn't available on
+// this account, remember it so the remaining pages skip the doomed first attempt
+// instead of failing over 28 times.
+let resolvedOpenAIModel: string | null = null;
+// Model we've already logged as "in use", so we log once per model (not per page).
+let loggedOpenAIModel: string | null = null;
+
+/** True when an error means the requested model isn't available to this account. */
+function isModelUnavailableError(err: unknown): boolean {
+  const e = err as {
+    status?: number;
+    code?: string;
+    error?: { code?: string };
+    message?: string;
+  };
+  const status = e?.status;
+  const code = e?.code ?? e?.error?.code;
+  const msg = String(e?.message ?? '').toLowerCase();
+  if (code === 'model_not_found') return true;
+  if (status === 404) return true;
+  // 400/403 whose message points at the model (no access / does not exist).
+  if (
+    (status === 400 || status === 403) &&
+    msg.includes('model') &&
+    (msg.includes('access') ||
+      msg.includes('exist') ||
+      msg.includes('not found') ||
+      msg.includes('does not') ||
+      msg.includes('do not have'))
+  ) {
+    return true;
+  }
+  return false;
+}
+
 async function generateWithOpenAI(opts: GenerateImageOptions): Promise<Buffer> {
   const client = new OpenAI({ apiKey: opts.apiKey });
-  // gpt-image-1.5 is the current default — stronger identity preservation than
-  // the original gpt-image-1. Override via opts.openaiModel if the account
-  // doesn't yet have access (fall back to 'gpt-image-1').
-  const model = opts.openaiModel || 'gpt-image-1.5';
-  const size = opts.size || '1024x1024';
+  // gpt-image-1.5 is the configured default (stronger identity preservation than
+  // gpt-image-1). We KEEP it, but verify at call time: if the account has no
+  // access, fall back to gpt-image-1 (and remember it for later pages).
+  const configuredModel = resolvedOpenAIModel || opts.openaiModel || 'gpt-image-1.5';
+  // gpt-image-1 / gpt-image-1.5 support size 'auto' — the model matches the base
+  // illustration's aspect ratio instead of us forcing 1024², so the source shape
+  // is preserved. (Callers may still pin an explicit size via opts.size.)
+  const size = opts.size || 'auto';
   const quality = opts.quality ?? 'high';
 
   const refs = opts.referenceImages ?? [];
-  let response: any;
+  // Build the uploadable files ONCE (reused if we have to retry on the fallback
+  // model). Order is preserved: refs[0] = base illustration, refs[1] = child ref.
+  const files =
+    refs.length > 0
+      ? await Promise.all(
+          refs.map((ref, i) =>
+            toFile(ref.data, `reference-${i}.png`, { type: ref.mimeType }),
+          ),
+        )
+      : null;
 
-  if (refs.length > 0) {
-    // Image edit: condition generation on the uploaded photo.
-    const files = await Promise.all(
-      refs.map((ref, i) =>
-        toFile(ref.data, `reference-${i}.png`, { type: ref.mimeType }),
-      ),
+  const run = (model: string): Promise<any> => {
+    if (files) {
+      // Image EDIT: both images sent together; the first is the base to edit,
+      // the rest are identity references. input_fidelity:'high' preserves the
+      // child's real facial features; n:1 = one edited image. Prompt is sent
+      // verbatim.
+      return client.images.edit({
+        model,
+        image: files.length === 1 ? files[0] : files,
+        prompt: opts.prompt,
+        size,
+        input_fidelity: opts.inputFidelity ?? 'high',
+        quality,
+        n: 1,
+      } as any);
+    }
+    return client.images.generate({
+      model,
+      prompt: opts.prompt,
+      size,
+      quality,
+      n: 1,
+    } as any);
+  };
+
+  let response: any;
+  let usedModel = configuredModel;
+  try {
+    response = await run(configuredModel);
+  } catch (err) {
+    if (configuredModel !== OPENAI_FALLBACK_MODEL && isModelUnavailableError(err)) {
+      usedModel = OPENAI_FALLBACK_MODEL;
+      resolvedOpenAIModel = OPENAI_FALLBACK_MODEL;
+      // eslint-disable-next-line no-console -- surface the model fallback in logs.
+      console.warn(
+        `[openai] model "${configuredModel}" is not available for this account (${
+          (err as { message?: string })?.message ?? err
+        }); falling back to "${OPENAI_FALLBACK_MODEL}".`,
+      );
+      response = await run(OPENAI_FALLBACK_MODEL);
+    } else {
+      throw err;
+    }
+  }
+  if (loggedOpenAIModel !== usedModel) {
+    loggedOpenAIModel = usedModel;
+    // eslint-disable-next-line no-console -- record which model is actually in use.
+    console.log(
+      `[openai] image ${files ? 'edit' : 'generate'} using model="${usedModel}" size="${size}" quality="${quality}" input_fidelity="${opts.inputFidelity ?? 'high'}"`,
     );
-    response = await client.images.edit({
-      model,
-      image: files.length === 1 ? files[0] : files,
-      prompt: opts.prompt,
-      size,
-      // Preserve the child's actual facial features from the uploaded photo.
-      // Without this the API defaults to 'low' and invents a generic face.
-      input_fidelity: opts.inputFidelity ?? 'high',
-      quality,
-    } as any);
-  } else {
-    response = await client.images.generate({
-      model,
-      prompt: opts.prompt,
-      size,
-      quality,
-    } as any);
   }
 
   const b64 = response?.data?.[0]?.b64_json;

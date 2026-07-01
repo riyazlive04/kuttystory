@@ -445,13 +445,13 @@ async function generateAndStorePage(
     referenceImages = childRefs;
   }
 
-  // Output detail for the OpenAI edit path. 'medium' costs ~6x less than 'high'
-  // (~$0.04 vs ~$0.25 per 1024² image) while keeping input_fidelity:'high', so
-  // the child's likeness still transfers — only fine detail is reduced. Override
-  // per-deployment with OPENAI_IMAGE_QUALITY (low | medium | high).
+  // Output detail for the OpenAI edit path. Default 'high' for the sharpest,
+  // most faithful result (with input_fidelity:'high'). 'high' costs ~6x 'medium'
+  // (~$0.25 vs ~$0.04 per 1024² image); drop it per-deployment with
+  // OPENAI_IMAGE_QUALITY (low | medium | high | auto) if cost matters more.
   const openaiQuality =
     (process.env.OPENAI_IMAGE_QUALITY as 'low' | 'medium' | 'high' | 'auto') ||
-    'medium';
+    'high';
 
   // FLUX LoRA uses the trained per-child model (no template, no input photo at
   // generation time — identity lives in the LoRA). Everything else uses the
