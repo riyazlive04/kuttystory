@@ -12,6 +12,7 @@ import {
   buildFalIllustrationPrompt,
   buildPersonalizationEditPrompt,
   buildQwenEditPrompt,
+  buildNanoBananaRedrawPrompt,
   buildNegativePrompt,
   personalizeText,
   generatePersonalizedImage,
@@ -23,6 +24,7 @@ import {
   generateWithLora,
   buildLoraPagePrompt,
 } from './lora';
+import { buildCharacterSheet } from './character-sheet';
 import { faceSwapIntoTemplate } from './segmind';
 import { cropToFace } from './face-crop';
 import { renderStoryText, STORY_TEXT_LAYOUTS } from './story-text';
@@ -51,6 +53,10 @@ export const COST_PER_IMAGE_CENTS: Record<ImageProvider, number> = {
   // Qwen-Image-Edit-2511 (fal) ≈ $0.03/image → 28 pages ≈ 84c. Edits the
   // template in place; fast + cheap + reliable.
   'qwen-edit': 4,
+  // Nano Banana Pro (Gemini 3 Pro Image) redraw, SYNC/standard 2K ≈ $0.134
+  // output + input images → ~15c reserved. (The batch lane, when built, bills at
+  // ~half; this constant is the sync preview/fallback rate.)
+  'nano-banana-redraw': 15,
 };
 
 /** Free preview is LOCKED to the first N pages (5). The single source of truth
@@ -324,6 +330,7 @@ async function generateAndStorePage(
   baseImage?: ReferenceImage,
   loraUrl?: string,
   loraTrigger?: string,
+  characterSheet?: ReferenceImage,
 ): Promise<{
   imageUrl: string;
   prompt: string;
@@ -354,7 +361,25 @@ async function generateAndStorePage(
   let prompt: string;
   let referenceImages: ReferenceImage[];
 
-  if (baseImage) {
+  if (provider === 'nano-banana-redraw') {
+    // Illustrated-redraw: re-draw the child (from the cached character sheet)
+    // INTO the template scene. References, in order: [template page to edit,
+    // character sheet = the look to insert, then the original photo(s) as extra
+    // identity anchors]. Dispatched through the generic generatePersonalizedImage
+    // path below (Nano Banana Pro handles the multi-image edit).
+    if (!baseImage) {
+      throw new Error(
+        'nano-banana-redraw needs the story template page as the first reference, but it could not be loaded.',
+      );
+    }
+    if (!characterSheet) {
+      throw new Error(
+        'nano-banana-redraw needs the child character sheet, but it was not provided.',
+      );
+    }
+    prompt = buildNanoBananaRedrawPrompt();
+    referenceImages = [baseImage, characterSheet, ...childRefs.slice(0, 3)];
+  } else if (baseImage) {
     // Qwen-Image-Edit needs a much stricter edit instruction than the OpenAI/
     // Kontext path (otherwise it duplicates the child / drifts the scene).
     prompt =
@@ -723,6 +748,64 @@ export async function generateBookPages(
       Number(config.get<string>('GENERATION_CONCURRENCY')) || PAGE_CONCURRENCY,
     );
 
+    // Nano Banana Pro redraw: ensure a per-child "character sheet" exists (the
+    // child drawn once as a storybook hero) and reuse it as the identity anchor
+    // for every page. Unlike the LoRA path this is a single zero-shot draw — no
+    // multi-photo training — so it's cheap and fast. Cached on the child, so
+    // re-orders and other stories for the same child skip regeneration.
+    let characterSheet: ReferenceImage | undefined;
+    if (provider === 'nano-banana-redraw') {
+      const cachedUrl = book.child.characterSheetUrl || undefined;
+      if (cachedUrl) {
+        try {
+          const key = keyFromRef(cachedUrl);
+          const data = await storage.read(key);
+          characterSheet = { data, mimeType: mimeFromKey(key) };
+          logger.log(`Reusing cached character sheet for child ${book.child.id}`);
+        } catch (err) {
+          logger.warn(
+            `Cached character sheet unreadable for child ${book.child.id}, regenerating: ${err}`,
+          );
+        }
+      }
+      if (!characterSheet) {
+        logger.log(`Generating character sheet for child ${book.child.id}...`);
+        const sheet = await buildCharacterSheet({
+          apiKey,
+          childRefs,
+          artStyle: book.story.artStyle,
+          ageYears: book.child.ageYears,
+          gender: book.child.gender,
+          skinTone: book.child.skinTone,
+          hairColor: book.child.hairColor,
+          hasGlasses: book.child.hasGlasses,
+        });
+        const sheetPng = await sharp(sheet.buffer).png().toBuffer();
+        const key = `character-sheets/${book.child.id}.png`;
+        const { url } = await storage.save(key, sheetPng, 'image/png');
+        await db.childProfile.update({
+          where: { id: book.child.id },
+          data: {
+            characterSheetUrl: url,
+            characterSheetGeneratedAt: new Date(),
+          },
+        });
+        characterSheet = { data: sheetPng, mimeType: 'image/png' };
+        costCents += perImageCost;
+        await db.aiUsageLog.create({
+          data: {
+            provider,
+            operation,
+            bookId,
+            costCents: perImageCost,
+            latencyMs: sheet.latencyMs,
+            success: true,
+          },
+        });
+        logger.log(`Character sheet generated + cached for child ${book.child.id}`);
+      }
+    }
+
     const results = await mapWithConcurrency(
       workPages,
       concurrency,
@@ -757,6 +840,7 @@ export async function generateBookPages(
                 baseImage,
                 loraUrl,
                 loraTrigger,
+                characterSheet,
               );
             },
             `page ${page.pageNumber}`,

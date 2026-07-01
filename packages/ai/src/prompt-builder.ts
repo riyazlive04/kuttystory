@@ -106,6 +106,53 @@ export function buildFalIllustrationPrompt(options: {
   ].join('\n');
 }
 
+/**
+ * Character-sheet prompt for the Nano Banana Pro illustrated-redraw provider.
+ * Turns the child's photo(s) into ONE re-usable "model sheet": the child drawn
+ * as a storybook hero in the book's art style, front-facing on a plain
+ * background. This sheet is generated once per child and cached, then handed to
+ * every per-page redraw as the identity anchor — so the child looks the SAME
+ * across all 30 pages. It is a fresh drawing (no template), so the prompt fully
+ * describes the desired cartoon character and forbids any photographic paste.
+ */
+export function buildCharacterSheetPrompt(opts: {
+  artStyle: string;
+  ageYears: number;
+  gender: string;
+  skinTone?: string;
+  hairColor?: string;
+  hasGlasses?: boolean;
+}): string {
+  const { artStyle, ageYears, gender, skinTone, hairColor, hasGlasses } = opts;
+  const glassesClause = hasGlasses
+    ? ', wearing the same style of glasses as in the photo'
+    : '';
+  return [
+    `Draw a children's storybook CHARACTER REFERENCE of the child in the photo(s), in this art style: ${artStyle}.`,
+    `A single ${ageYears}-year-old ${gender}, full body, standing front-facing in a neutral friendly pose, centred on a plain soft background, well lit and clearly visible.`,
+    `LIKENESS: take the child's recognisable features from the photo — face shape, ${skinTone || 'natural'} skin tone, ${hairColor || 'natural'} hair colour and hairstyle${glassesClause} — but RE-DRAW them as cartoon art. Hand-drawn and illustrated, never photographic, never a cut-out, collage or pasted photo; no real skin texture, no photo lighting.`,
+    `The head and body must match perfectly as ONE cohesive cartoon character with gentle cel shading and clean line work, child-like proportions.`,
+    `Exactly one child. Do NOT render any text, letters, words, captions, watermarks or signatures anywhere.`,
+  ].join('\n');
+}
+
+/**
+ * Per-page redraw prompt for the Nano Banana Pro provider. The references are
+ * sent in this order: [1] the template page to edit, [2] the child's character
+ * sheet (the exact look to insert), then [3+] the child's original photo(s) as
+ * extra identity anchors. The model replaces the template's child with the
+ * character while leaving the hand-drawn scene, style and composition intact.
+ */
+export function buildNanoBananaRedrawPrompt(): string {
+  return [
+    'The FIRST image is a children\'s storybook page to edit. The SECOND image is the exact character to use (a reference of one child). Any further images are extra photos of that same child for likeness only.',
+    'Replace the child in the FIRST image with the character shown in the SECOND image so they clearly look like the same child, re-drawn in the FIRST image\'s exact art style.',
+    'Keep the background, composition, colours, lighting and art style of the FIRST image completely unchanged. Adapt ONLY the character\'s pose to fit the scene naturally.',
+    'Exactly one child in the scene. Never paste or overlay a photo; the child must stay a hand-drawn cartoon.',
+    'Do not add, remove or change any text, letters, words or captions.',
+  ].join('\n');
+}
+
 export const DEFAULT_NEGATIVE_PROMPT = 'photograph, photorealistic, realistic skin texture, pasted face, collage, cut-out face, different child, multiple children, adult features, distorted face, extra limbs, text, letters, words, caption, title, watermark, signature';
 
 export function buildNegativePrompt(additional?: string): string {

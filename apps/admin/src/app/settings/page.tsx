@@ -32,7 +32,8 @@ interface SiteSettings {
     | 'openai-fal'
     | 'flux-lora'
     | 'qwen-edit'
-    | 'segmind-faceswap';
+    | 'segmind-faceswap'
+    | 'nano-banana-redraw';
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -486,6 +487,7 @@ export default function SettingsPage() {
             {(
               [
                 'segmind-faceswap',
+                'nano-banana-redraw',
                 'qwen-edit',
                 'gemini',
                 'openai',
@@ -507,8 +509,10 @@ export default function SettingsPage() {
               >
                 {p === 'segmind-faceswap'
                   ? 'Segmind FaceSwap (template, recommended)'
-                  : p === 'qwen-edit'
-                    ? 'Qwen Image-Edit (template, fast)'
+                  : p === 'nano-banana-redraw'
+                    ? 'Nano Banana Pro redraw (illustrated, needs Gemini key)'
+                    : p === 'qwen-edit'
+                      ? 'Qwen Image-Edit (template, fast)'
                     : p === 'gemini'
                       ? 'Google Gemini'
                       : p === 'openai'

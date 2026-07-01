@@ -27,7 +27,8 @@ const DEFAULT_SETTINGS = {
     | 'openai-fal'
     | 'flux-lora'
     | 'qwen-edit'
-    | 'segmind-faceswap',
+    | 'segmind-faceswap'
+    | 'nano-banana-redraw',
 };
 
 /** Secret keys that may be stored — anything not listed is rejected. */
@@ -194,7 +195,8 @@ export class SettingsService {
       | 'openai-fal'
       | 'flux-lora'
       | 'qwen-edit'
-      | 'segmind-faceswap';
+      | 'segmind-faceswap'
+      | 'nano-banana-redraw';
     apiKey: string | null;
     enabled: boolean;
   }> {
@@ -208,7 +210,8 @@ export class SettingsService {
       | 'openai-fal'
       | 'flux-lora'
       | 'qwen-edit'
-      | 'segmind-faceswap' =
+      | 'segmind-faceswap'
+      | 'nano-banana-redraw' =
       raw === 'gemini'
         ? 'gemini'
         : raw === 'fal'
@@ -223,7 +226,9 @@ export class SettingsService {
                   ? 'qwen-edit'
                   : raw === 'segmind-faceswap'
                     ? 'segmind-faceswap'
-                    : 'openai';
+                    : raw === 'nano-banana-redraw'
+                      ? 'nano-banana-redraw'
+                      : 'openai';
     const enabled = settings.imageGenEnabled === true;
     // Each provider family draws from its own stored secret.
     const secretKey: SecretKey =

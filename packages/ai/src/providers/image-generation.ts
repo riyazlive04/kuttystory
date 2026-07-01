@@ -16,7 +16,12 @@ export type ImageProvider =
   // Segmind FaceSwap Comic: swaps the child's face INTO the story template,
   // preserving the hand-illustrated art. Handled in apps/api (segmind.ts), not
   // through generatePersonalizedImage — it's a face-swap, not a prompt-gen.
-  | 'segmind-faceswap';
+  | 'segmind-faceswap'
+  // Nano Banana Pro (Gemini 3 Pro Image) illustrated-redraw: prompt-driven edit
+  // that re-DRAWS the child (from a cached character sheet + photos) into the
+  // template scene — cohesive storybook look, no face-detection dependency. Added
+  // as an ADDITIONAL selectable provider; Segmind stays the default.
+  | 'nano-banana-redraw';
 
 export interface ReferenceImage {
   data: Buffer;
@@ -101,8 +106,14 @@ export async function generatePersonalizedImage(
   const start = Date.now();
   // OpenAI-via-fal (gpt-image-2) is a slow sync endpoint (≈150–300s/image), so it
   // needs a longer ceiling than the default 120s or every page would time out.
+  // Nano Banana Pro at 2K can take ≈50–90s (longer under load), so give it more
+  // headroom than the default 120s. OpenAI-via-fal is slower still (≈150–300s).
   const defaultTimeout =
-    opts.provider === 'openai-fal' ? 300_000 : DEFAULT_TIMEOUT_MS;
+    opts.provider === 'openai-fal'
+      ? 300_000
+      : opts.provider === 'nano-banana-redraw'
+        ? 240_000
+        : DEFAULT_TIMEOUT_MS;
   const timeoutMs = opts.timeoutMs ?? defaultTimeout;
 
   let buffer: Buffer;
@@ -127,6 +138,12 @@ export async function generatePersonalizedImage(
       generateWithQwenEdit(opts),
       timeoutMs,
       'Qwen-Image-Edit image generation',
+    );
+  } else if (opts.provider === 'nano-banana-redraw') {
+    buffer = await withTimeout(
+      generateWithNanoBananaPro(opts),
+      timeoutMs,
+      'Nano Banana Pro image generation',
     );
   } else {
     buffer = await withTimeout(generateWithGemini(opts), timeoutMs, 'Gemini image generation');
@@ -173,6 +190,55 @@ async function generateWithGemini(opts: GenerateImageOptions): Promise<Buffer> {
     }
   }
   throw new Error('Gemini returned no image data');
+}
+
+/**
+ * Illustrated-redraw via Nano Banana Pro (Gemini 3 Pro Image). Same in-context
+ * multi-image mechanics as Gemini above, but on the `gemini-3-pro-image-preview`
+ * model with an explicit 2K `imageConfig` for print-grade output. Reference
+ * images are passed in order and the caller decides their meaning:
+ *   • character sheet:  [child photo(s)] + "draw this child as a storybook hero"
+ *   • per-page redraw:  [template page, character sheet, child photo(s)] +
+ *                       "put this character into this scene"
+ * Note 1K and 2K bill identically on this model (same token count), so we always
+ * request 2K. The model id is a `-preview` SKU — pin/override via `geminiModel`.
+ */
+async function generateWithNanoBananaPro(opts: GenerateImageOptions): Promise<Buffer> {
+  const ai = new GoogleGenAI({ apiKey: opts.apiKey });
+  const model = opts.geminiModel || 'gemini-3-pro-image-preview';
+
+  const promptText = opts.negativePrompt
+    ? `${opts.prompt}\n\nAvoid: ${opts.negativePrompt}`
+    : opts.prompt;
+
+  const parts: Array<Record<string, unknown>> = [];
+  for (const ref of opts.referenceImages ?? []) {
+    parts.push({
+      inlineData: { mimeType: ref.mimeType, data: ref.data.toString('base64') },
+    });
+  }
+  parts.push({ text: promptText });
+
+  const response: any = await ai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts }],
+    config: {
+      responseModalities: ['IMAGE'],
+      imageConfig: { imageSize: '2K' },
+    },
+  });
+
+  const candidates = response?.candidates ?? [];
+  for (const candidate of candidates) {
+    const candidateParts = candidate?.content?.parts ?? [];
+    for (const part of candidateParts) {
+      const data = part?.inlineData?.data;
+      if (data) {
+        return Buffer.from(data, 'base64');
+      }
+    }
+  }
+  throw new Error('Nano Banana Pro returned no image data');
 }
 
 async function generateWithOpenAI(opts: GenerateImageOptions): Promise<Buffer> {
