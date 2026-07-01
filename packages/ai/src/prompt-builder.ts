@@ -144,17 +144,18 @@ export function buildCharacterSheetPrompt(opts: {
  * character while leaving the hand-drawn scene, style and composition intact.
  */
 export function buildNanoBananaRedrawPrompt(): string {
-  // Based on the owner's proven ChatGPT/OpenAI one-liner ("replace the face of
-  // the first photo with the face of the child in the second image"), now used
-  // for Nano Banana too — with an orientation guard (never rotate a turned-away
-  // head to reveal the face; the beach page-4 problem) and FACE-ONLY: keep the
-  // template's original hair, swap only the face.
+  // Nano Banana (Gemini image) defaults to REGENERATING the whole child. This
+  // prompt forces a LOCAL, surgical face-only swap: only the facial features
+  // inside the existing face change; every other pixel is left untouched, in the
+  // same position/size/orientation. Face-only (keep template hair) + no
+  // head-turning (beach page-4). If it still redraws too much, the next lever is
+  // to feed the child's PHOTO (not the full character sheet) as the 2nd image.
   return [
-    'The FIRST image is a children\'s storybook page to edit. The SECOND image is a reference of the child to use; any further images are extra photos of that same child, for likeness only.',
-    'Replace ONLY the face of the child in the FIRST image with the face of the child in the SECOND image, so the face clearly looks like the same child, keeping the FIRST image\'s exact hand-drawn cartoon art style. Do NOT change the hair — keep the original hair (shape, style and colour) from the FIRST image.',
-    'Keep everything else in the FIRST image exactly the same — pose, body, head angle, facing / viewing direction, hair, clothing, props, scene, background, colours, lighting and art style.',
-    'IMPORTANT: do NOT turn or rotate the head to reveal the face. If the child is looking to the side, looking down, turned away or seen from behind, KEEP that exact orientation and apply the reference face in that same orientation — never re-centre or straighten the face toward the viewer.',
-    'Exactly one child in the scene; never paste or overlay a photo (the child must stay a hand-drawn cartoon). Do not add, remove or change any text, letters, words or captions.',
+    'The FIRST image is a FINISHED children\'s storybook page. The SECOND image is a reference of a child; any further images are extra photos of that same child, for face likeness only.',
+    'This is a LOCAL, surgical edit — NOT a redraw. Change ONLY the facial features inside the child\'s existing face in the FIRST image (eyes, eyebrows, nose, mouth, face shape and skin tone) so the face resembles the child in the SECOND image. Everything else must stay exactly as it already is.',
+    'Do NOT regenerate, re-draw, re-render, re-paint or re-pose the child or the scene. Keep every other pixel identical to the FIRST image: the SAME hair, head shape, head size, head angle and facing / viewing direction, and the same body, pose, arms, hands, clothing, props, background, colours, lighting, composition and hand-drawn art style. Do not move, resize, rotate, shift or restyle anything.',
+    'The face must stay in the SAME position, size and orientation as the original face. If the child is looking to the side, looking down, turned away or seen from behind, KEEP that exact orientation and only adjust the visible facial features — never turn or rotate the head toward the viewer to show the face.',
+    'The new face must be hand-drawn in the FIRST image\'s exact cartoon style — never a pasted or photographic face. Exactly one child. Do not add, remove or change any text, letters, words or captions.',
   ].join('\n');
 }
 
