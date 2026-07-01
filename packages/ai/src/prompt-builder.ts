@@ -144,16 +144,16 @@ export function buildCharacterSheetPrompt(opts: {
  * character while leaving the hand-drawn scene, style and composition intact.
  */
 export function buildNanoBananaRedrawPrompt(): string {
+  // Based on the owner's proven ChatGPT/OpenAI one-liner ("replace the face of
+  // the first photo with the face of the child in the second image"), now used
+  // for Nano Banana too — PLUS an explicit orientation guard so the model never
+  // rotates a turned-away head to reveal the face (the beach page-4 problem).
   return [
-    'The FIRST image is a children\'s storybook page to edit. The SECOND image is the exact character to use (a reference of one child). Any further images are extra photos of that same child for likeness only.',
-    'Re-draw the child in the FIRST image so their face, hair, skin tone and features clearly match the reference child, keeping the FIRST image\'s exact hand-drawn art style, line work and shading.',
-    // PRESERVE the pose — do NOT "adapt" it. The old wording let the model rotate
-    // the head to show the face (e.g. a boy looking sideways/away came out facing
-    // back at the viewer). The redraw must keep the template's exact orientation.
-    'PRESERVE THE POSE EXACTLY: keep the child\'s body position, head angle and facing / viewing direction identical to the FIRST image. If the child is turned away, seen from behind, in profile, looking to the side or looking down, KEEP that exact orientation — do NOT rotate or turn the head toward the viewer, and do NOT reveal, straighten or re-centre the face.',
-    'Keep the background, composition, colours, lighting and art style completely unchanged. Change ONLY the child\'s facial features and hair to match the reference; change nothing else about the pose or scene.',
-    'Exactly one child in the scene. Never paste or overlay a photo; the child must stay a hand-drawn cartoon.',
-    'Do not add, remove or change any text, letters, words or captions.',
+    'The FIRST image is a children\'s storybook page to edit. The SECOND image is a reference of the child to use; any further images are extra photos of that same child, for likeness only.',
+    'Replace the face and hair of the child in the FIRST image with the child shown in the SECOND image, so they clearly look like the same child, keeping the FIRST image\'s exact hand-drawn cartoon art style.',
+    'Keep everything else in the FIRST image exactly the same — pose, body, head angle, facing / viewing direction, clothing, props, scene, background, colours, lighting and art style.',
+    'IMPORTANT: do NOT turn or rotate the head to reveal the face. If the child is looking to the side, looking down, turned away or seen from behind, KEEP that exact orientation — never re-centre or straighten the face toward the viewer.',
+    'Exactly one child in the scene; never paste or overlay a photo (the child must stay a hand-drawn cartoon). Do not add, remove or change any text, letters, words or captions.',
   ].join('\n');
 }
 
