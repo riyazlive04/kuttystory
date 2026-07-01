@@ -33,12 +33,28 @@ export interface PageTextLayout {
   align: 'left' | 'center' | 'right';
 }
 
+/** A soft rounded panel drawn BEHIND the text (as in the unicorn/abc art). */
+export interface TextPanelStyle {
+  /** Panel fill colour (usually white/cream). */
+  color: string;
+  /** 0–1 opacity of the panel. */
+  opacity: number;
+  /** Corner radius as a fraction of the font size. */
+  radiusFrac?: number;
+  /** Horizontal padding as a fraction of the font size. */
+  padXFrac?: number;
+  /** Vertical padding as a fraction of the font size. */
+  padYFrac?: number;
+}
+
 /** Visual style shared by every page of a story (matches the Photoshop text). */
 export interface StoryTextStyle {
-  /** Deep-blue glyph fill. Measured ≈ #0A4A7D; confirm exact hex from client PSD. */
+  /** Glyph fill (beach ≈ #0F4A7F; unicorn ≈ #201860 navy). */
   fill: string;
-  /** Cream outline + glow color. */
+  /** Outline + glow color (usually white/cream). */
   outline: string;
+  /** Optional rounded panel behind the text (unicorn/abc use one; beach doesn't). */
+  panel?: TextPanelStyle;
 }
 
 export const DEFAULT_STORY_TEXT_STYLE: StoryTextStyle = {
@@ -198,7 +214,7 @@ export async function renderStoryText(
   const marginX = Wd * 0.07;
 
   // Style (matches the client's Photoshop text): drop shadow + soft outer glow +
-  // thin light outline + blue fill, back-to-front.
+  // thin light outline + fill, back-to-front.
   const strokeW = fontSize * 0.08;
   const glow = fontSize * 0.06;
   const shDx = fontSize * 0.025;
@@ -206,14 +222,42 @@ export async function renderStoryText(
   // Padding around each line canvas so the stroke/glow/shadow don't clip.
   const pad = Math.ceil(fontSize * 0.4);
 
+  // Per-line horizontal placement (also used to size the optional panel).
+  const linePos = lines.map((line, i) => {
+    const lineW = advance(font, line, fontSize);
+    let gx: number;
+    if (layout.align === 'left') gx = marginX;
+    else if (layout.align === 'right') gx = Wd - marginX - lineW;
+    else gx = (Wd - lineW) / 2;
+    return { line, i, lineW, gx, by: firstBaseline + i * lineHeight };
+  });
+
+  const composites: sharp.OverlayOptions[] = [];
+
+  // Optional rounded panel behind the whole text block (unicorn/abc).
+  if (style.panel) {
+    const padX = fontSize * (style.panel.padXFrac ?? 0.55);
+    const padY = fontSize * (style.panel.padYFrac ?? 0.4);
+    const minLeft = Math.min(...linePos.map((p) => p.gx));
+    const maxRight = Math.max(...linePos.map((p) => p.gx + p.lineW));
+    const blockTop = firstBaseline - ascent;
+    const blockBottom = firstBaseline + (lines.length - 1) * lineHeight + descent;
+    const px = Math.max(0, Math.round(minLeft - padX));
+    const py = Math.max(0, Math.round(blockTop - padY));
+    const pw = Math.min(Wd - px, Math.round(maxRight - minLeft + padX * 2));
+    const ph = Math.min(Ht - py, Math.round(blockBottom - blockTop + padY * 2));
+    const r = Math.round(fontSize * (style.panel.radiusFrac ?? 0.45));
+    const psvg = `<svg width="${pw}" height="${ph}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${pw}" height="${ph}" rx="${r}" ry="${r}" fill="${style.panel.color}" fill-opacity="${style.panel.opacity}"/></svg>`;
+    composites.push({ input: await sharp(Buffer.from(psvg)).png().toBuffer(), left: px, top: py });
+  }
+
   // Render EACH LINE in its OWN small canvas, then composite with sharp.
   // Rasterizing a whole multi-line block in one librsvg pass intermittently DROPS
   // a glyph (e.g. "Yahya" → "Yah a") — a librsvg fragility that shows up with
   // wrapped lines / right alignment. Single-line rasters never drop, and sharp
   // positions them precisely, so this is robust for ANY name or text length.
   const lineLayers = await Promise.all(
-    lines.map(async (line, i) => {
-      const lineW = advance(font, line, fontSize);
+    linePos.map(async ({ line, lineW, gx, by }) => {
       const canvasW = Math.ceil(lineW + pad * 2);
       const canvasH = Math.ceil(ascent + descent + pad * 2);
       const baseX = pad;
@@ -234,22 +278,16 @@ export async function renderStoryText(
   <g fill="${style.outline}" stroke="${style.outline}" stroke-width="${strokeW.toFixed(1)}" stroke-linejoin="round" stroke-linecap="round">${glyphs}</g>
   <g fill="${style.fill}">${glyphs}</g>
 </svg>`;
-      const raster = await sharp(Buffer.from(svg)).png().toBuffer();
-
-      let gx: number;
-      if (layout.align === 'left') gx = marginX;
-      else if (layout.align === 'right') gx = Wd - marginX - lineW;
-      else gx = (Wd - lineW) / 2;
-      const by = firstBaseline + i * lineHeight;
       return {
-        input: raster,
+        input: await sharp(Buffer.from(svg)).png().toBuffer(),
         left: Math.max(0, Math.round(gx - baseX)),
         top: Math.max(0, Math.round(by - baseY)),
       };
     }),
   );
+  composites.push(...lineLayers);
 
-  return sharp(image).composite(lineLayers).png().toBuffer();
+  return sharp(image).composite(composites).png().toBuffer();
 }
 
 // ─── Per-story layout config ──────────────────────────────────────────────────
@@ -300,6 +338,45 @@ export const STORY_TEXT_LAYOUTS: Record<
       28: { yFrac: 0.1, anchor: 'top', align: 'center' },
       29: { yFrac: 0.17, anchor: 'top', align: 'right' },
       30: { yFrac: 0.82, anchor: 'bottom', align: 'center' },
+    },
+  },
+  'magical-unicorn': {
+    // Client's unicorn text: navy (#201860) Herkules on a soft white rounded
+    // panel. Positions read from the client's templates (where each panel sits).
+    style: {
+      fill: '#201860',
+      outline: '#FFFFFF',
+      panel: { color: '#FFFFFF', opacity: 0.72 },
+    },
+    pages: {
+      1: { yFrac: 0.9, anchor: 'bottom', align: 'left' },
+      2: { yFrac: 0.52, anchor: 'top', align: 'center' },
+      3: { yFrac: 0.5, anchor: 'top', align: 'center' },
+      4: { yFrac: 0.76, anchor: 'bottom', align: 'center' },
+      5: { yFrac: 0.78, anchor: 'bottom', align: 'left' },
+      6: { yFrac: 0.44, anchor: 'top', align: 'right' },
+      7: { yFrac: 0.9, anchor: 'bottom', align: 'left' },
+      8: { yFrac: 0.6, anchor: 'top', align: 'left' },
+      9: { yFrac: 0.05, anchor: 'top', align: 'right' },
+      10: { yFrac: 0.05, anchor: 'top', align: 'right' },
+      11: { yFrac: 0.05, anchor: 'top', align: 'center' },
+      12: { yFrac: 0.05, anchor: 'top', align: 'left' },
+      13: { yFrac: 0.45, anchor: 'top', align: 'center' },
+      14: { yFrac: 0.45, anchor: 'top', align: 'center' },
+      15: { yFrac: 0.05, anchor: 'top', align: 'center' },
+      16: { yFrac: 0.74, anchor: 'bottom', align: 'left' },
+      17: { yFrac: 0.05, anchor: 'top', align: 'left' },
+      18: { yFrac: 0.05, anchor: 'top', align: 'right' },
+      19: { yFrac: 0.78, anchor: 'bottom', align: 'left' },
+      20: { yFrac: 0.05, anchor: 'top', align: 'left' },
+      21: { yFrac: 0.05, anchor: 'top', align: 'left' },
+      22: { yFrac: 0.05, anchor: 'top', align: 'left' },
+      23: { yFrac: 0.72, anchor: 'bottom', align: 'center' },
+      24: { yFrac: 0.78, anchor: 'bottom', align: 'left' },
+      25: { yFrac: 0.82, anchor: 'bottom', align: 'center' },
+      26: { yFrac: 0.5, anchor: 'top', align: 'center' },
+      27: { yFrac: 0.82, anchor: 'bottom', align: 'left' },
+      28: { yFrac: 0.82, anchor: 'bottom', align: 'center' },
     },
   },
 };
