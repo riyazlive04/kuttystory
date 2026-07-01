@@ -42,39 +42,46 @@ function buildAbcAdventurePages(): PageData[] {
     lighting: 'cheerful daylight',
   };
 
-  const letterPages: Array<{ letter: string; word: string; location: string; item: string }> = [
-    { letter: 'A', word: 'Apple', location: 'in the garden', item: 'APPLE' },
-    { letter: 'B', word: 'Ball', location: 'in the park', item: 'BLUE BALL' },
-    { letter: 'C', word: 'Cat', location: 'at home', item: 'SLEEPY CAT' },
-    { letter: 'D', word: 'Dog', location: 'outside', item: 'DOG' },
-    { letter: 'E', word: 'Elephant', location: 'in the zoo', item: 'ELEPHANT' },
-    { letter: 'F', word: 'Fish', location: 'near water', item: 'ORANGE FISH' },
-    { letter: 'G', word: 'Goat', location: 'on a farm', item: 'GOAT' },
-    { letter: 'H', word: 'Hat', location: 'playing dress-up', item: 'HAT' },
-    { letter: 'I', word: 'Ice cream', location: 'at the shop', item: 'ICE CREAM' },
-    { letter: 'J', word: 'Jellyfish', location: 'at the aquarium', item: 'JELLYFISH' },
-    { letter: 'K', word: 'Kite', location: 'at the beach', item: 'KITE' },
-    { letter: 'L', word: 'Lion', location: 'at the forest', item: 'LION' },
-    { letter: 'M', word: 'Moon', location: 'looking at the sky', item: 'MOON' },
-    { letter: 'N', word: 'Nest', location: 'in the garden', item: 'BIRD NEST' },
-    { letter: 'O', word: 'Owl', location: 'in the woods', item: 'OWL' },
-    { letter: 'P', word: 'Parrot', location: 'sees colorful birds', item: 'PARROT' },
-    { letter: 'Q', word: 'Queen', location: 'at a castle', item: 'QUEEN' },
-    { letter: 'R', word: 'Rainbow', location: 'looks up high', item: 'RAINBOW' },
-    { letter: 'S', word: 'Sun', location: 'outside playing', item: 'SUN' },
-    { letter: 'T', word: 'Tree', location: 'in the forest', item: 'TALL TREE' },
-    { letter: 'U', word: 'Umbrella', location: 'in the rain', item: 'UMBRELLA' },
-    { letter: 'V', word: 'Violin', location: 'hears music', item: 'VIOLIN' },
-    { letter: 'W', word: 'Whale', location: 'at the ocean', item: 'WHALE' },
-    { letter: 'X', word: 'Xylophone', location: 'playing music', item: 'XYLOPHONE' },
-    { letter: 'Y', word: 'Yak', location: 'in the mountains', item: 'FLUFFY YAK' },
-    { letter: 'Z', word: 'Zebra', location: 'in the grassland', item: 'STRIPED ZEBRA' },
+  // Transcribed VERBATIM from the client's actual ABC templates (PSD text
+  // layers). The old seed had diverged (J was "Jellyfish" not Juice, M "Moon"
+  // not Mirror, R "Rainbow" not Rabbit, V "Violin" not Van, plus many location
+  // differences). `line2` is the middle sentence — usually "{{childName}} is …"
+  // but a few pages read "It is …" (O/S/U), so it's stored whole.
+  const letterPages: Array<{ letter: string; word: string; line2: string; item: string }> = [
+    { letter: 'A', word: 'Apple', line2: '{{childName}} is in the garden.', item: 'APPLE' },
+    { letter: 'B', word: 'Ball', line2: '{{childName}} is in the park.', item: 'BLUE BALL' },
+    { letter: 'C', word: 'Cat', line2: '{{childName}} is at home.', item: 'SLEEPY CAT' },
+    { letter: 'D', word: 'Dog', line2: '{{childName}} is outside.', item: 'DOG' },
+    { letter: 'E', word: 'Elephant', line2: '{{childName}} is in the Zoo.', item: 'ELEPHANT' },
+    { letter: 'F', word: 'Fish', line2: '{{childName}} is near water.', item: 'ORANGE FISH' },
+    { letter: 'G', word: 'Goat', line2: '{{childName}} is on a farm.', item: 'GOAT' },
+    { letter: 'H', word: 'Hat', line2: '{{childName}} is playing dress-up.', item: 'HAT' },
+    { letter: 'I', word: 'Ice Cream', line2: '{{childName}} is at a shop.', item: 'pink ice cream' },
+    { letter: 'J', word: 'Juice', line2: '{{childName}} is having a drink.', item: 'JUICE GLASS' },
+    { letter: 'K', word: 'Kite', line2: '{{childName}} is outside.', item: 'FLYING KITE' },
+    { letter: 'L', word: 'Lion', line2: '{{childName}} is at the forest.', item: 'LION' },
+    { letter: 'M', word: 'Mirror', line2: '{{childName}} is in the living room.', item: 'MIRROR' },
+    { letter: 'N', word: 'Nest', line2: '{{childName}} is near a tree.', item: "BIRD'S NEST" },
+    { letter: 'O', word: 'Owl', line2: 'It is evening time.', item: 'OWL' },
+    { letter: 'P', word: 'Parrot', line2: '{{childName}} sees colorful birds.', item: 'PARROT' },
+    { letter: 'Q', word: 'Queen', line2: '{{childName}} is in a castle.', item: 'QUEEN' },
+    { letter: 'R', word: 'Rabbit', line2: '{{childName}} is in a field.', item: 'RABBIT' },
+    { letter: 'S', word: 'Sun', line2: 'It is a bright day.', item: 'SHINING SUN' },
+    { letter: 'T', word: 'Tree', line2: '{{childName}} is in the forest.', item: 'TALL TREE' },
+    { letter: 'U', word: 'Umbrella', line2: 'It is raining.', item: 'UMBRELLA' },
+    { letter: 'V', word: 'Van', line2: '{{childName}} is on the road.', item: 'VAN' },
+    { letter: 'W', word: 'Whale', line2: '{{childName}} is near the sea.', item: 'BIG WHALE' },
+    { letter: 'X', word: 'Xylophone', line2: '{{childName}} is playing music.', item: 'XYLOPHONE' },
+    { letter: 'Y', word: 'Yak', line2: '{{childName}} is in the mountains.', item: 'FLUFFY YAK' },
+    { letter: 'Z', word: 'Zebra', line2: '{{childName}} is in the grassland.', item: 'STRIPED ZEBRA' },
   ];
 
   const pages: PageData[] = [
     {
       pageNumber: 1,
-      textEnglish: "Welcome to {{childName}}'s ABC Adventure!",
+      // Verbatim from the Front-1 template; the static "Look closely…" subtitle is
+      // baked into the art, only this title is code-rendered (navy, on the ellipse).
+      textEnglish: 'Welcome to {{childName}} ABC Adventure!',
       illustrationPrompt:
         'A personalized child standing in a colorful wonderland with giant floating alphabet letters A through Z surrounding them, confetti and sparkles in the air, a big friendly title banner overhead, lush green landscape in the background',
       styleTokens: abcStyle,
@@ -83,8 +90,9 @@ function buildAbcAdventurePages(): PageData[] {
     },
     {
       pageNumber: 2,
-      textEnglish:
-        'Look carefully at every page — {{childName}} needs your help to find hidden things!',
+      // The static "Look carefully at every page" line is baked into the art; only
+      // this name-bearing line is code-rendered (white) on the top shape.
+      textEnglish: '{{childName}} needs your help to find hidden things!',
       illustrationPrompt:
         'A personalized child with a magnifying glass, looking curious and excited, surrounded by colorful question marks and hidden objects peeking from behind bushes and flowers, playful garden setting',
       styleTokens: abcStyle,
@@ -96,16 +104,13 @@ function buildAbcAdventurePages(): PageData[] {
   for (let i = 0; i < letterPages.length; i++) {
     const lp = letterPages[i];
     const pageNumber = i + 3;
-    const locationDesc = lp.location.startsWith('sees') || lp.location.startsWith('looks') || lp.location.startsWith('hears') || lp.location.startsWith('playing')
-      ? lp.location
-      : lp.location;
 
-    const textEnglish = `${lp.letter} is for ${lp.word}. {{childName}} is ${lp.location}. Can you find the ${lp.item}?`;
+    const textEnglish = `${lp.letter} is for ${lp.word}. ${lp.line2} Can you find the ${lp.item}?`;
 
     pages.push({
       pageNumber,
       textEnglish,
-      illustrationPrompt: `A personalized child ${locationDesc}, with a large friendly ${lp.word.toLowerCase()} prominently featured in the scene, the letter "${lp.letter}" displayed decoratively, vibrant and engaging seek-and-find composition with hidden details for children to discover`,
+      illustrationPrompt: `A personalized child with a large friendly ${lp.word.toLowerCase()} prominently featured in the scene, the letter "${lp.letter}" displayed decoratively, vibrant and engaging seek-and-find composition with hidden details for children to discover`,
       styleTokens: abcStyle,
       isCoverPage: false,
       isPreviewPage: pageNumber <= 5,

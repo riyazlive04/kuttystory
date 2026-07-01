@@ -12,16 +12,35 @@
  * name was never in the pixels — we draw the whole line ourselves, so name
  * replacement is perfect for any name length, exactly like Diffrun.
  *
- * Portability: the glyphs are rasterized to SVG <path> data via opentype.js, so
- * rendering does NOT depend on the font being installed in the OS / fontconfig
- * (which is fragile on the Linux VPS). The font file is the single swap point —
- * drop the client's exact `.ttf` at assets/fonts/story.ttf (or point
- * STORY_FONT_PATH at it) and every page matches their original pixel-for-pixel.
+ * Rendering: the text is drawn by sharp's native Pango/HarfBuzz text engine,
+ * pointed DIRECTLY at the font file (`fontfile`), so it needs NO system font
+ * install and stays OS-independent on the Linux VPS. We deliberately do NOT
+ * rasterize opentype.js glyph paths to SVG anymore: librsvg (sharp's SVG loader)
+ * silently DROPS glyphs for certain font-size/coordinate combinations
+ * (e.g. "Can you find the"→"a you find the", "the"→"he", the "A" counter fills
+ * in) — reproducible and size-dependent, so no per-line/serialization trick fully
+ * cured it. Pango is a real shaping engine and renders every glyph reliably.
+ * The font file is the single swap point — drop the client's exact `.ttf` at
+ * assets/fonts/story.ttf (or point STORY_FONT_PATH at it); set STORY_FONT_FAMILY
+ * if its internal family name isn't "Herkules".
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import opentype from 'opentype.js';
 import sharp from 'sharp';
+
+/**
+ * An exact rectangle (fractions of page W/H) the text must sit inside. Used when
+ * the art has a BAKED panel (abc-adventure) so the code-rendered caption has to
+ * land precisely on that panel — not just hug a page margin. When `box` is set it
+ * overrides yFrac/anchor: text is wrapped to the box width and centred (or
+ * `align`-justified) horizontally and vertically within the box.
+ */
+export interface TextBox {
+  xFrac: number;
+  yFrac: number;
+  wFrac: number;
+  hFrac: number;
+}
 
 /** Where the personalized line sits on the page + how it's justified. */
 export interface PageTextLayout {
@@ -31,6 +50,10 @@ export interface PageTextLayout {
   anchor: 'top' | 'bottom';
   /** Horizontal justification (also decides which side the block hugs). */
   align: 'left' | 'center' | 'right';
+  /** Optional exact rectangle the text must fit inside (abc-adventure panels). */
+  box?: TextBox;
+  /** Optional per-page style override (e.g. the abc cover title is navy, not white). */
+  style?: StoryTextStyle;
 }
 
 /** A soft rounded panel drawn BEHIND the text (as in the unicorn/abc art). */
@@ -63,11 +86,12 @@ export const DEFAULT_STORY_TEXT_STYLE: StoryTextStyle = {
   outline: process.env.STORY_TEXT_OUTLINE || '#FFFFFF',
 };
 
-// ─── Font loading (cached, OS-independent) ─────────────────────────────────
+// ─── Font resolution (OS-independent: we point Pango at the file) ─────────────
 
-let cachedFont: { path: string; font: opentype.Font } | null = null;
+let cachedFontPath: string | null = null;
 
 function resolveFontPath(): string {
+  if (cachedFontPath) return cachedFontPath;
   const candidates = [
     process.env.STORY_FONT_PATH,
     path.join(process.cwd(), 'assets/fonts/story.ttf'),
@@ -77,7 +101,10 @@ function resolveFontPath(): string {
   ].filter((c): c is string => Boolean(c));
   for (const c of candidates) {
     try {
-      if (fs.existsSync(c)) return c;
+      if (fs.existsSync(c)) {
+        cachedFontPath = c;
+        return c;
+      }
     } catch {
       /* ignore and try next */
     }
@@ -87,81 +114,130 @@ function resolveFontPath(): string {
   );
 }
 
-function loadFont(): opentype.Font {
-  const fontPath = resolveFontPath();
-  if (cachedFont && cachedFont.path === fontPath) return cachedFont.font;
-  const buf = fs.readFileSync(fontPath);
-  // opentype.parse needs an ArrayBuffer view of exactly the file bytes.
-  const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-  const font = opentype.parse(ab);
-  cachedFont = { path: fontPath, font };
-  return font;
-}
+/** Internal family name of the bundled font (the Herkules `name` table entry). */
+const FONT_FAMILY = process.env.STORY_FONT_FAMILY || 'Herkules';
+/** Drop-shadow colour behind the glyphs (deep navy, matches the PSD shadow). */
+const SHADOW_COLOR = '#08243F';
 
-// ─── Layout helpers ─────────────────────────────────────────────────────────
+// ─── Pango text helpers (reliable glyph rendering) ────────────────────────────
 
-function advance(font: opentype.Font, text: string, fontSize: number): number {
-  return font.getAdvanceWidth(text, fontSize);
-}
-
-/** Greedy word-wrap so every line fits within `maxWidth` px at `fontSize`. */
-function wrapToWidth(
-  font: opentype.Font,
-  text: string,
-  fontSize: number,
-  maxWidth: number,
-): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let cur = '';
-  for (const w of words) {
-    const candidate = cur ? `${cur} ${w}` : w;
-    if (cur && advance(font, candidate, fontSize) > maxWidth) {
-      lines.push(cur);
-      cur = w;
-    } else {
-      cur = candidate;
-    }
-  }
-  if (cur) lines.push(cur);
-  return lines;
+function escapeMarkup(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 /**
- * Pick the largest font size whose wrapped text fits the width, line budget AND
- * a vertical height cap — so the headline stays compact (like the client's
- * Photoshop sizing) instead of dominating the page.
+ * Render `text` in one colour via sharp's Pango engine, word-wrapped to
+ * `maxWidth` px at `sizePx` pixels. Returns the raster + its measured size. This
+ * is the single trustworthy rasterizer — every glyph always renders.
  */
-function fitText(
-  font: opentype.Font,
+async function pangoText(
   text: string,
-  S: number,
+  sizePx: number,
   maxWidth: number,
-  maxLines: number,
+  color: string,
+  align: 'left' | 'center' | 'right',
+): Promise<{ buf: Buffer; width: number; height: number }> {
+  const fontfile = resolveFontPath();
+  const buf = await sharp({
+    text: {
+      text: `<span foreground="${color}">${escapeMarkup(text)}</span>`,
+      // Trailing integer = point size; at dpi 72 that is ~pixels.
+      font: `${FONT_FAMILY} ${Math.max(4, Math.round(sizePx))}`,
+      fontfile,
+      rgba: true,
+      dpi: 72,
+      align,
+      width: Math.max(1, Math.round(maxWidth)),
+      spacing: Math.round(sizePx * 0.12),
+    },
+  })
+    .png()
+    .toBuffer();
+  const m = await sharp(buf).metadata();
+  return { buf, width: m.width || 0, height: m.height || 0 };
+}
+
+/**
+ * Largest pixel size (≤ maxSizePx) whose wrapped block fits maxWidth × maxHeight.
+ * Pango wraps to `maxWidth`, so we only have to shrink until the HEIGHT fits.
+ */
+async function fitPango(
+  text: string,
+  maxWidth: number,
   maxHeight: number,
-): { lines: string[]; fontSize: number } {
-  const unitsPerEm = font.unitsPerEm || 1000;
-  const lineFactor = 1.14;
-  const minSize = Math.round(S * 0.04);
-  let fontSize = Math.round(S * 0.072);
-  let lines = wrapToWidth(font, text, fontSize, maxWidth);
-  const widest = (fs: number) =>
-    lines.reduce((m, l) => Math.max(m, advance(font, l, fs)), 0);
-  const blockHeight = (fs: number) => {
-    const asc = (font.ascender / unitsPerEm) * fs;
-    const desc = (Math.abs(font.descender) / unitsPerEm) * fs;
-    return (lines.length - 1) * fs * lineFactor + asc + desc;
-  };
-  while (
-    fontSize > minSize &&
-    (lines.length > maxLines ||
-      widest(fontSize) > maxWidth ||
-      blockHeight(fontSize) > maxHeight)
-  ) {
-    fontSize -= 2;
-    lines = wrapToWidth(font, text, fontSize, maxWidth);
+  maxSizePx: number,
+  minSizePx: number,
+  align: 'left' | 'center' | 'right',
+): Promise<number> {
+  let size = maxSizePx;
+  // Measure with the fill colour (geometry is colour-independent).
+  let r = await pangoText(text, size, maxWidth, '#000000', align);
+  let guard = 0;
+  while (r.height > maxHeight && size > minSizePx && guard++ < 40) {
+    const factor = Math.min(0.94, maxHeight / r.height);
+    size = Math.max(minSizePx, Math.floor(size * factor));
+    // eslint-disable-next-line no-await-in-loop -- iterative fit, a few passes.
+    r = await pangoText(text, size, maxWidth, '#000000', align);
   }
-  return { lines, fontSize };
+  return size;
+}
+
+/**
+ * Build the styled text block (soft drop shadow + light outline ring + fill,
+ * back-to-front) matching the client's Photoshop look. The outline is made by
+ * compositing the outline-colour raster at 8 offsets — no SVG stroke, so nothing
+ * can drop. Returns the block raster and the inner text box (for panel sizing).
+ */
+async function renderTextBlock(
+  text: string,
+  maxWidth: number,
+  maxHeight: number,
+  maxSizePx: number,
+  minSizePx: number,
+  align: 'left' | 'center' | 'right',
+  style: StoryTextStyle,
+): Promise<{ raster: Buffer; width: number; height: number; pad: number; textW: number; textH: number }> {
+  const size = await fitPango(text, maxWidth, maxHeight, maxSizePx, minSizePx, align);
+  const [fill, outline, dark] = await Promise.all([
+    pangoText(text, size, maxWidth, style.fill, align),
+    pangoText(text, size, maxWidth, style.outline, align),
+    pangoText(text, size, maxWidth, SHADOW_COLOR, align),
+  ]);
+
+  const t = Math.max(2, Math.round(size * 0.07)); // outline thickness
+  const shOff = Math.max(1, Math.round(size * 0.05)); // shadow offset
+  const pad = t + shOff;
+  const textW = fill.width;
+  const textH = fill.height;
+  const PW = textW + pad * 2;
+  const PH = textH + pad * 2;
+
+  const comps: sharp.OverlayOptions[] = [];
+  // Soft drop shadow.
+  const shadow = await sharp(dark.buf)
+    .blur(Math.max(0.6, size * 0.04))
+    .png()
+    .toBuffer();
+  comps.push({ input: shadow, left: pad + shOff, top: pad + shOff });
+  // Outline ring: 8 offsets of the outline-colour raster.
+  for (let a = 0; a < 8; a++) {
+    const dx = Math.round(t * Math.cos((a * Math.PI) / 4));
+    const dy = Math.round(t * Math.sin((a * Math.PI) / 4));
+    comps.push({ input: outline.buf, left: pad + dx, top: pad + dy });
+  }
+  // Fill on top.
+  comps.push({ input: fill.buf, left: pad, top: pad });
+
+  const raster = await sharp({
+    create: { width: PW, height: PH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite(comps)
+    .png()
+    .toBuffer();
+  return { raster, width: PW, height: PH, pad, textW, textH };
 }
 
 // ─── Renderer ────────────────────────────────────────────────────────────────
@@ -186,106 +262,93 @@ export async function renderStoryText(
   // size on both square (beach) and wide 2-page-spread (unicorn/abc) pages.
   const S = Math.min(Wd, Ht);
 
-  const font = loadFont();
-  const unitsPerEm = font.unitsPerEm || 1000;
+  // A baked panel (abc) gives an exact rectangle; otherwise fall back to the
+  // page-margin model used by beach/unicorn.
+  const box = layout.box
+    ? {
+        left: layout.box.xFrac * Wd,
+        top: layout.box.yFrac * Ht,
+        w: layout.box.wFrac * Wd,
+        h: layout.box.hFrac * Ht,
+      }
+    : null;
+
+  // A page may override the story-wide style (e.g. the abc cover title is navy on
+  // its white ellipse while every interior caption is white). Resolving it HERE
+  // keeps the per-page override self-contained in this module.
+  const eff = layout.style ?? style;
 
   // Center-aligned lines may span most of the page width; side-hugging lines keep
-  // to a portion so they never run across the character.
+  // to a portion so they never run across the character. Boxed text wraps to the
+  // panel width (with a little inner padding).
   const isSide = layout.align !== 'center';
-  const maxWidth = Wd * (isSide ? 0.6 : 0.86);
-  const { lines, fontSize } = fitText(font, clean, S, maxWidth, 3, S * 0.22);
+  const maxWidth = box ? box.w * 0.94 : Wd * (isSide ? 0.6 : 0.86);
+  const maxHeight = box ? box.h * 0.96 : S * 0.22;
+  const maxSizePx = Math.round(S * 0.075);
+  // Allow a smaller floor for boxed captions: some baked ABC panels are compact
+  // (e.g. the V page), so the caption must shrink enough to stay inside them.
+  const minSizePx = Math.round(S * (box ? 0.022 : 0.03));
 
-  const ascent = (font.ascender / unitsPerEm) * fontSize;
-  const descent = (Math.abs(font.descender) / unitsPerEm) * fontSize;
-  const lineHeight = fontSize * 1.14;
-  const blockH = (lines.length - 1) * lineHeight + ascent + descent;
+  const block = await renderTextBlock(
+    clean,
+    maxWidth,
+    maxHeight,
+    maxSizePx,
+    minSizePx,
+    layout.align,
+    eff,
+  );
 
-  // First baseline from the requested vertical anchor (fraction of page HEIGHT).
-  const marginY = Ht * 0.04;
-  let firstBaseline: number;
-  if (layout.anchor === 'bottom') {
-    const bottomEdge = Math.min(layout.yFrac * Ht, Ht - marginY);
-    firstBaseline = bottomEdge - blockH + ascent;
-  } else {
-    const topEdge = Math.max(layout.yFrac * Ht, marginY);
-    firstBaseline = topEdge + ascent;
-  }
-
+  // Place the block. `block.pad` is the transparent margin around the actual
+  // glyphs, so the visible text starts at (pad,pad) inside the raster — offset by
+  // it when aligning to a page margin or centring in a box.
   const marginX = Wd * 0.07;
-
-  // Style (matches the client's Photoshop text): drop shadow + soft outer glow +
-  // thin light outline + fill, back-to-front.
-  const strokeW = fontSize * 0.08;
-  const glow = fontSize * 0.06;
-  const shDx = fontSize * 0.025;
-  const shDy = fontSize * 0.04;
-  // Padding around each line canvas so the stroke/glow/shadow don't clip.
-  const pad = Math.ceil(fontSize * 0.4);
-
-  // Per-line horizontal placement (also used to size the optional panel).
-  const linePos = lines.map((line, i) => {
-    const lineW = advance(font, line, fontSize);
-    let gx: number;
-    if (layout.align === 'left') gx = marginX;
-    else if (layout.align === 'right') gx = Wd - marginX - lineW;
-    else gx = (Wd - lineW) / 2;
-    return { line, i, lineW, gx, by: firstBaseline + i * lineHeight };
-  });
+  const marginY = Ht * 0.04;
+  let bx: number;
+  let by: number;
+  if (box) {
+    if (layout.align === 'left') bx = box.left + box.w * 0.03 - block.pad;
+    else if (layout.align === 'right')
+      bx = box.left + box.w - box.w * 0.03 - block.textW - block.pad;
+    else bx = box.left + (box.w - block.textW) / 2 - block.pad;
+    by = box.top + (box.h - block.textH) / 2 - block.pad;
+  } else {
+    if (layout.align === 'left') bx = marginX - block.pad;
+    else if (layout.align === 'right') bx = Wd - marginX - block.textW - block.pad;
+    else bx = (Wd - block.textW) / 2 - block.pad;
+    if (layout.anchor === 'bottom') {
+      const bottomEdge = Math.min(layout.yFrac * Ht, Ht - marginY);
+      by = bottomEdge - block.textH - block.pad;
+    } else {
+      const topEdge = Math.max(layout.yFrac * Ht, marginY);
+      by = topEdge - block.pad;
+    }
+  }
 
   const composites: sharp.OverlayOptions[] = [];
 
-  // Optional rounded panel behind the whole text block (unicorn/abc).
-  if (style.panel) {
-    const padX = fontSize * (style.panel.padXFrac ?? 0.55);
-    const padY = fontSize * (style.panel.padYFrac ?? 0.4);
-    const minLeft = Math.min(...linePos.map((p) => p.gx));
-    const maxRight = Math.max(...linePos.map((p) => p.gx + p.lineW));
-    const blockTop = firstBaseline - ascent;
-    const blockBottom = firstBaseline + (lines.length - 1) * lineHeight + descent;
-    const px = Math.max(0, Math.round(minLeft - padX));
-    const py = Math.max(0, Math.round(blockTop - padY));
-    const pw = Math.min(Wd - px, Math.round(maxRight - minLeft + padX * 2));
-    const ph = Math.min(Ht - py, Math.round(blockBottom - blockTop + padY * 2));
-    const r = Math.round(fontSize * (style.panel.radiusFrac ?? 0.45));
-    const psvg = `<svg width="${pw}" height="${ph}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${pw}" height="${ph}" rx="${r}" ry="${r}" fill="${style.panel.color}" fill-opacity="${style.panel.opacity}"/></svg>`;
+  // Optional rounded panel behind the whole text block (unicorn draws one; abc
+  // bakes its panel into the art). Sized around the visible glyphs.
+  if (eff.panel) {
+    const size = Math.round(block.textH); // rough font size proxy
+    const padX = size * (eff.panel.padXFrac ?? 0.55);
+    const padY = size * (eff.panel.padYFrac ?? 0.4);
+    const textLeft = bx + block.pad;
+    const textTop = by + block.pad;
+    const px = Math.max(0, Math.round(textLeft - padX));
+    const py = Math.max(0, Math.round(textTop - padY));
+    const pw = Math.min(Wd - px, Math.round(block.textW + padX * 2));
+    const ph = Math.min(Ht - py, Math.round(block.textH + padY * 2));
+    const r = Math.round(size * (eff.panel.radiusFrac ?? 0.35));
+    const psvg = `<svg width="${pw}" height="${ph}" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${pw}" height="${ph}" rx="${r}" ry="${r}" fill="${eff.panel.color}" fill-opacity="${eff.panel.opacity}"/></svg>`;
     composites.push({ input: await sharp(Buffer.from(psvg)).png().toBuffer(), left: px, top: py });
   }
 
-  // Render EACH LINE in its OWN small canvas, then composite with sharp.
-  // Rasterizing a whole multi-line block in one librsvg pass intermittently DROPS
-  // a glyph (e.g. "Yahya" → "Yah a") — a librsvg fragility that shows up with
-  // wrapped lines / right alignment. Single-line rasters never drop, and sharp
-  // positions them precisely, so this is robust for ANY name or text length.
-  const lineLayers = await Promise.all(
-    linePos.map(async ({ line, lineW, gx, by }) => {
-      const canvasW = Math.ceil(lineW + pad * 2);
-      const canvasH = Math.ceil(ascent + descent + pad * 2);
-      const baseX = pad;
-      const baseY = pad + ascent;
-      const paths: string[] = [];
-      for (const gp of font.getPaths(line, baseX, baseY, fontSize)) {
-        const d = gp.toPathData(2);
-        if (d) paths.push(`<path d="${d}"/>`);
-      }
-      const glyphs = paths.join('');
-      const svg = `<svg width="${canvasW}" height="${canvasH}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${glow.toFixed(1)}"/></filter>
-    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${(fontSize * 0.03).toFixed(1)}"/></filter>
-  </defs>
-  <g transform="translate(${shDx.toFixed(1)},${shDy.toFixed(1)})" filter="url(#sh)" fill="#08243F" opacity="0.45">${glyphs}</g>
-  <g filter="url(#glow)" fill="${style.outline}">${glyphs}</g>
-  <g fill="${style.outline}" stroke="${style.outline}" stroke-width="${strokeW.toFixed(1)}" stroke-linejoin="round" stroke-linecap="round">${glyphs}</g>
-  <g fill="${style.fill}">${glyphs}</g>
-</svg>`;
-      return {
-        input: await sharp(Buffer.from(svg)).png().toBuffer(),
-        left: Math.max(0, Math.round(gx - baseX)),
-        top: Math.max(0, Math.round(by - baseY)),
-      };
-    }),
-  );
-  composites.push(...lineLayers);
+  composites.push({
+    input: block.raster,
+    left: Math.max(0, Math.round(bx)),
+    top: Math.max(0, Math.round(by)),
+  });
 
   return sharp(image).composite(composites).png().toBuffer();
 }
@@ -377,6 +440,49 @@ export const STORY_TEXT_LAYOUTS: Record<
       26: { yFrac: 0.5, anchor: 'top', align: 'center' },
       27: { yFrac: 0.82, anchor: 'bottom', align: 'left' },
       28: { yFrac: 0.82, anchor: 'bottom', align: 'center' },
+    },
+  },
+  'abc-adventure': {
+    // Client's ABC templates BAKE the coloured caption panel + letter badge into
+    // the art (we stripped only the caption sentences from the PSDs), so the code
+    // renders WHITE text placed EXACTLY inside each panel via a per-page `box`
+    // (fractions of the 2800px PSD, read straight from the caption text layers).
+    // Page 1 (cover) is the only navy title — on its white ellipse.
+    style: {
+      fill: '#FFFFFF',
+      // Deep-navy outline so the white caption stays legible on EVERY panel
+      // colour (the client's saturated reds/blues plus the paler yellow/grey ones).
+      outline: '#22315A',
+    },
+    pages: {
+      1: { yFrac: 0.37, anchor: 'top', align: 'center', box: { xFrac: 0.03, yFrac: 0.37, wFrac: 0.47, hFrac: 0.13 }, style: { fill: '#20507C', outline: '#FFFFFF' } },
+      2: { yFrac: 0.0689, anchor: 'top', align: 'center', box: { xFrac: 0.2739, yFrac: 0.0689, wFrac: 0.4518, hFrac: 0.1036 } },
+      3: { yFrac: 0.7486, anchor: 'top', align: 'center', box: { xFrac: 0.2379, yFrac: 0.7486, wFrac: 0.5429, hFrac: 0.1714 } },
+      4: { yFrac: 0.7614, anchor: 'top', align: 'center', box: { xFrac: 0.365, yFrac: 0.7614, wFrac: 0.5143, hFrac: 0.1593 } },
+      5: { yFrac: 0.7011, anchor: 'top', align: 'center', box: { xFrac: 0.1621, yFrac: 0.7011, wFrac: 0.3789, hFrac: 0.1796 } },
+      6: { yFrac: 0.345, anchor: 'top', align: 'center', box: { xFrac: 0.1618, yFrac: 0.345, wFrac: 0.3886, hFrac: 0.1879 } },
+      7: { yFrac: 0.695, anchor: 'top', align: 'center', box: { xFrac: 0.4779, yFrac: 0.695, wFrac: 0.3846, hFrac: 0.1861 } },
+      8: { yFrac: 0.6625, anchor: 'top', align: 'center', box: { xFrac: 0.3743, yFrac: 0.6625, wFrac: 0.4786, hFrac: 0.2043 } },
+      9: { yFrac: 0.3346, anchor: 'top', align: 'center', box: { xFrac: 0.0939, yFrac: 0.3346, wFrac: 0.3921, hFrac: 0.1846 } },
+      10: { yFrac: 0.6468, anchor: 'top', align: 'center', box: { xFrac: 0.4825, yFrac: 0.6468, wFrac: 0.3546, hFrac: 0.2486 } },
+      11: { yFrac: 0.6668, anchor: 'top', align: 'center', box: { xFrac: 0.3011, yFrac: 0.6668, wFrac: 0.4571, hFrac: 0.2054 } },
+      12: { yFrac: 0.6586, anchor: 'top', align: 'center', box: { xFrac: 0.1525, yFrac: 0.6586, wFrac: 0.4843, hFrac: 0.2046 } },
+      13: { yFrac: 0.7218, anchor: 'top', align: 'center', box: { xFrac: 0.3089, yFrac: 0.7218, wFrac: 0.4293, hFrac: 0.2075 } },
+      14: { yFrac: 0.6961, anchor: 'top', align: 'center', box: { xFrac: 0.1375, yFrac: 0.6961, wFrac: 0.4807, hFrac: 0.2104 } },
+      15: { yFrac: 0.1504, anchor: 'top', align: 'center', box: { xFrac: 0.385, yFrac: 0.1504, wFrac: 0.3486, hFrac: 0.2411 } },
+      16: { yFrac: 0.6904, anchor: 'top', align: 'center', box: { xFrac: 0.3736, yFrac: 0.6904, wFrac: 0.5025, hFrac: 0.2236 } },
+      17: { yFrac: 0.6929, anchor: 'top', align: 'center', box: { xFrac: 0.1864, yFrac: 0.6929, wFrac: 0.3961, hFrac: 0.2168 } },
+      18: { yFrac: 0.6693, anchor: 'top', align: 'center', box: { xFrac: 0.5957, yFrac: 0.6693, wFrac: 0.3107, hFrac: 0.2446 } },
+      19: { yFrac: 0.7154, anchor: 'top', align: 'center', box: { xFrac: 0.2375, yFrac: 0.7154, wFrac: 0.4432, hFrac: 0.2154 } },
+      20: { yFrac: 0.6314, anchor: 'top', align: 'center', box: { xFrac: 0.4504, yFrac: 0.6314, wFrac: 0.4007, hFrac: 0.2043 } },
+      21: { yFrac: 0.6332, anchor: 'top', align: 'center', box: { xFrac: 0.2561, yFrac: 0.6332, wFrac: 0.4879, hFrac: 0.2286 } },
+      22: { yFrac: 0.7157, anchor: 'top', align: 'center', box: { xFrac: 0.3711, yFrac: 0.7157, wFrac: 0.4914, hFrac: 0.2129 } },
+      23: { yFrac: 0.1446, anchor: 'top', align: 'center', box: { xFrac: 0.3136, yFrac: 0.1446, wFrac: 0.3821, hFrac: 0.2004 } },
+      24: { yFrac: 0.6436, anchor: 'top', align: 'center', box: { xFrac: 0.2332, yFrac: 0.6436, wFrac: 0.5339, hFrac: 0.2421 } },
+      25: { yFrac: 0.6746, anchor: 'top', align: 'center', box: { xFrac: 0.3911, yFrac: 0.6746, wFrac: 0.4525, hFrac: 0.2011 } },
+      26: { yFrac: 0.6636, anchor: 'top', align: 'center', box: { xFrac: 0.1386, yFrac: 0.6636, wFrac: 0.5071, hFrac: 0.2154 } },
+      27: { yFrac: 0.7082, anchor: 'top', align: 'center', box: { xFrac: 0.1275, yFrac: 0.7082, wFrac: 0.3743, hFrac: 0.235 } },
+      28: { yFrac: 0.6907, anchor: 'top', align: 'center', box: { xFrac: 0.2204, yFrac: 0.6907, wFrac: 0.5504, hFrac: 0.215 } },
     },
   },
 };
