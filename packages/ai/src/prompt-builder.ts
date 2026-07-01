@@ -144,18 +144,15 @@ export function buildCharacterSheetPrompt(opts: {
  * character while leaving the hand-drawn scene, style and composition intact.
  */
 export function buildNanoBananaRedrawPrompt(): string {
-  // Nano Banana (Gemini image) defaults to REGENERATING the whole child. This
-  // prompt forces a LOCAL, surgical face-only swap: only the facial features
-  // inside the existing face change; every other pixel is left untouched, in the
-  // same position/size/orientation. Face-only (keep template hair) + no
-  // head-turning (beach page-4). If it still redraws too much, the next lever is
-  // to feed the child's PHOTO (not the full character sheet) as the 2nd image.
+  // The owner's exact proven instruction (the ChatGPT/OpenAI flow that face-swaps
+  // across all poses). Nano Banana gets the template as the FIRST image and the
+  // child's PHOTO as the SECOND image (set in the orchestrator — NOT a character
+  // sheet), matching that flow. Kept minimal on purpose: elaborate "surgical /
+  // do not redraw" wording made Nano Banana skip the swap on several pages.
   return [
-    'The FIRST image is a FINISHED children\'s storybook page. The SECOND image is a reference of a child; any further images are extra photos of that same child, for face likeness only.',
-    'This is a LOCAL, surgical edit — NOT a redraw. Change ONLY the facial features inside the child\'s existing face in the FIRST image (eyes, eyebrows, nose, mouth, face shape and skin tone) so the face resembles the child in the SECOND image. Everything else must stay exactly as it already is.',
-    'Do NOT regenerate, re-draw, re-render, re-paint or re-pose the child or the scene. Keep every other pixel identical to the FIRST image: the SAME hair, head shape, head size, head angle and facing / viewing direction, and the same body, pose, arms, hands, clothing, props, background, colours, lighting, composition and hand-drawn art style. Do not move, resize, rotate, shift or restyle anything.',
-    'The face must stay in the SAME position, size and orientation as the original face. If the child is looking to the side, looking down, turned away or seen from behind, KEEP that exact orientation and only adjust the visible facial features — never turn or rotate the head toward the viewer to show the face.',
-    'The new face must be hand-drawn in the FIRST image\'s exact cartoon style — never a pasted or photographic face. Exactly one child. Do not add, remove or change any text, letters, words or captions.',
+    'I want the face of the first photo replaced with the face of the child in the second image, retaining the face position as well.',
+    'Keep everything else in the first image exactly the same — pose, body, hair, clothing, scene, background, colours, lighting and art style.',
+    'Do not add any text, letters or captions.',
   ].join('\n');
 }
 

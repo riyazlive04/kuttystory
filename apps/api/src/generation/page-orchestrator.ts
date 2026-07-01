@@ -362,23 +362,18 @@ async function generateAndStorePage(
   let referenceImages: ReferenceImage[];
 
   if (provider === 'nano-banana-redraw') {
-    // Illustrated-redraw: re-draw the child (from the cached character sheet)
-    // INTO the template scene. References, in order: [template page to edit,
-    // character sheet = the look to insert, then the original photo(s) as extra
-    // identity anchors]. Dispatched through the generic generatePersonalizedImage
-    // path below (Nano Banana Pro handles the multi-image edit).
+    // Face-swap directly from the child's PHOTO — exactly the OpenAI/ChatGPT flow
+    // the owner proved: the template is the FIRST image and the child's photo(s)
+    // are the rest. We deliberately do NOT use a character sheet as the reference:
+    // showing Nano Banana a whole cartoon child made it redraw the entire child /
+    // skip the swap on several pages. `characterSheet` is now ignored here.
     if (!baseImage) {
       throw new Error(
         'nano-banana-redraw needs the story template page as the first reference, but it could not be loaded.',
       );
     }
-    if (!characterSheet) {
-      throw new Error(
-        'nano-banana-redraw needs the child character sheet, but it was not provided.',
-      );
-    }
     prompt = buildNanoBananaRedrawPrompt();
-    referenceImages = [baseImage, characterSheet, ...childRefs.slice(0, 3)];
+    referenceImages = [baseImage, ...childRefs];
   } else if (baseImage) {
     // Qwen-Image-Edit needs a much stricter edit instruction than the OpenAI/
     // Kontext path (otherwise it duplicates the child / drifts the scene).
@@ -748,13 +743,13 @@ export async function generateBookPages(
       Number(config.get<string>('GENERATION_CONCURRENCY')) || PAGE_CONCURRENCY,
     );
 
-    // Nano Banana Pro redraw: ensure a per-child "character sheet" exists (the
-    // child drawn once as a storybook hero) and reuse it as the identity anchor
-    // for every page. Unlike the LoRA path this is a single zero-shot draw — no
-    // multi-photo training — so it's cheap and fast. Cached on the child, so
-    // re-orders and other stories for the same child skip regeneration.
+    // Character-sheet step DISABLED: Nano Banana now face-swaps directly from the
+    // child's photo (the owner's proven flow), so the per-child "character sheet"
+    // is no longer used as a reference. Flip this flag on to restore the earlier
+    // redraw-from-character-sheet behaviour.
+    const NANO_USES_CHARACTER_SHEET = false;
     let characterSheet: ReferenceImage | undefined;
-    if (provider === 'nano-banana-redraw') {
+    if (NANO_USES_CHARACTER_SHEET && provider === 'nano-banana-redraw') {
       const cachedUrl = book.child.characterSheetUrl || undefined;
       if (cachedUrl) {
         try {
