@@ -146,13 +146,14 @@ export function buildCharacterSheetPrompt(opts: {
 export function buildNanoBananaRedrawPrompt(): string {
   // Based on the owner's proven ChatGPT/OpenAI one-liner ("replace the face of
   // the first photo with the face of the child in the second image"), now used
-  // for Nano Banana too — PLUS an explicit orientation guard so the model never
-  // rotates a turned-away head to reveal the face (the beach page-4 problem).
+  // for Nano Banana too — with an orientation guard (never rotate a turned-away
+  // head to reveal the face; the beach page-4 problem) and FACE-ONLY: keep the
+  // template's original hair, swap only the face.
   return [
     'The FIRST image is a children\'s storybook page to edit. The SECOND image is a reference of the child to use; any further images are extra photos of that same child, for likeness only.',
-    'Replace the face and hair of the child in the FIRST image with the child shown in the SECOND image, so they clearly look like the same child, keeping the FIRST image\'s exact hand-drawn cartoon art style.',
-    'Keep everything else in the FIRST image exactly the same — pose, body, head angle, facing / viewing direction, clothing, props, scene, background, colours, lighting and art style.',
-    'IMPORTANT: do NOT turn or rotate the head to reveal the face. If the child is looking to the side, looking down, turned away or seen from behind, KEEP that exact orientation — never re-centre or straighten the face toward the viewer.',
+    'Replace ONLY the face of the child in the FIRST image with the face of the child in the SECOND image, so the face clearly looks like the same child, keeping the FIRST image\'s exact hand-drawn cartoon art style. Do NOT change the hair — keep the original hair (shape, style and colour) from the FIRST image.',
+    'Keep everything else in the FIRST image exactly the same — pose, body, head angle, facing / viewing direction, hair, clothing, props, scene, background, colours, lighting and art style.',
+    'IMPORTANT: do NOT turn or rotate the head to reveal the face. If the child is looking to the side, looking down, turned away or seen from behind, KEEP that exact orientation and apply the reference face in that same orientation — never re-centre or straighten the face toward the viewer.',
     'Exactly one child in the scene; never paste or overlay a photo (the child must stay a hand-drawn cartoon). Do not add, remove or change any text, letters, words or captions.',
   ].join('\n');
 }
