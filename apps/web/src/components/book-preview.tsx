@@ -100,19 +100,21 @@ export function BookPreview({
                   sizes="(max-width: 640px) 100vw, 640px"
                   priority
                 />
-                {/* Logo watermark (free-preview protection) */}
+                {/* Logo watermark (free-preview protection) — a single mark at
+                    the bottom centre; never tiled over the artwork */}
                 {watermark && (
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute inset-0 z-10"
-                    style={{
-                      backgroundImage: 'url(/KuttyStoryLogo.png)',
-                      backgroundRepeat: 'repeat',
-                      backgroundSize: '96px',
-                      transform: 'rotate(-22deg) scale(1.5)',
-                      opacity: 0.1,
-                    }}
-                  />
+                    className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex justify-center"
+                  >
+                    <Image
+                      src="/KuttyStoryLogo.png"
+                      alt=""
+                      width={140}
+                      height={48}
+                      className="h-10 w-auto opacity-40 drop-shadow-sm"
+                    />
+                  </div>
                 )}
               </div>
             </motion.div>

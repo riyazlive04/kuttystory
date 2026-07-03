@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@kutty-story/database';
+import type { ImageProvider } from '@kutty-story/ai';
 import { DatabaseService } from '../database/database.service';
 import { EncryptionService } from './encryption.service';
 
@@ -25,17 +26,32 @@ const DEFAULT_SETTINGS = {
   // and art style with no GPU/infra. OpenAI edit-in-place is the runner-up;
   // fresh-generation providers (fal/flux-lora) discard the template entirely.
   // All providers remain selectable in admin.
-  imageProvider: 'segmind-faceswap' as
-    | 'gemini'
-    | 'openai'
-    | 'fal'
-    | 'flux-kontext'
-    | 'openai-fal'
-    | 'flux-lora'
-    | 'qwen-edit'
-    | 'segmind-faceswap'
-    | 'nano-banana-redraw',
+  imageProvider: 'segmind-faceswap' as ImageProvider,
+  // Optional per-stage overrides. EMPTY = inherit `imageProvider`. Lets the
+  // free preview run on a cheap provider while the paid full book uses the
+  // premium redraw (or vice versa), switchable in admin with no code change.
+  previewImageProvider: '' as '' | ImageProvider,
+  finalImageProvider: '' as '' | ImageProvider,
 };
+
+/** Every selectable provider (mirrors the ImageProvider union in @kutty-story/ai). */
+const IMAGE_PROVIDERS: readonly ImageProvider[] = [
+  'gemini',
+  'openai',
+  'fal',
+  'flux-kontext',
+  'openai-fal',
+  'flux-lora',
+  'qwen-edit',
+  'segmind-faceswap',
+  'nano-banana-redraw',
+];
+
+function normalizeProvider(raw: unknown): ImageProvider | null {
+  return IMAGE_PROVIDERS.includes(raw as ImageProvider)
+    ? (raw as ImageProvider)
+    : null;
+}
 
 /** Secret keys that may be stored — anything not listed is rejected. */
 export const SECRET_KEYS = [
@@ -191,50 +207,26 @@ export class SettingsService {
     );
   }
 
-  /** Resolve the API key for the currently selected image provider. */
-  async getActiveImageProviderConfig(): Promise<{
-    provider:
-      | 'gemini'
-      | 'openai'
-      | 'fal'
-      | 'flux-kontext'
-      | 'openai-fal'
-      | 'flux-lora'
-      | 'qwen-edit'
-      | 'segmind-faceswap'
-      | 'nano-banana-redraw';
+  /**
+   * Resolve the API key for the currently selected image provider.
+   * `stage` picks the per-stage override (previewImageProvider /
+   * finalImageProvider) when one is set; empty overrides inherit the
+   * base `imageProvider`.
+   */
+  async getActiveImageProviderConfig(stage?: 'preview' | 'final'): Promise<{
+    provider: ImageProvider;
     apiKey: string | null;
     enabled: boolean;
   }> {
     const settings = await this.getSettings();
-    const raw = settings.imageProvider;
-    const provider:
-      | 'gemini'
-      | 'openai'
-      | 'fal'
-      | 'flux-kontext'
-      | 'openai-fal'
-      | 'flux-lora'
-      | 'qwen-edit'
-      | 'segmind-faceswap'
-      | 'nano-banana-redraw' =
-      raw === 'gemini'
-        ? 'gemini'
-        : raw === 'fal'
-          ? 'fal'
-          : raw === 'flux-kontext'
-            ? 'flux-kontext'
-            : raw === 'openai-fal'
-              ? 'openai-fal'
-              : raw === 'flux-lora'
-                ? 'flux-lora'
-                : raw === 'qwen-edit'
-                  ? 'qwen-edit'
-                  : raw === 'segmind-faceswap'
-                    ? 'segmind-faceswap'
-                    : raw === 'nano-banana-redraw'
-                      ? 'nano-banana-redraw'
-                      : 'openai';
+    const base = normalizeProvider(settings.imageProvider) ?? 'openai';
+    const override =
+      stage === 'preview'
+        ? normalizeProvider(settings.previewImageProvider)
+        : stage === 'final'
+          ? normalizeProvider(settings.finalImageProvider)
+          : null;
+    const provider = override ?? base;
     const enabled = settings.imageGenEnabled === true;
     // Each provider family draws from its own stored secret.
     const secretKey: SecretKey =

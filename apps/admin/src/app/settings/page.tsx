@@ -15,6 +15,29 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 
+type ImageProvider =
+  | 'gemini'
+  | 'openai'
+  | 'fal'
+  | 'flux-kontext'
+  | 'openai-fal'
+  | 'flux-lora'
+  | 'qwen-edit'
+  | 'segmind-faceswap'
+  | 'nano-banana-redraw';
+
+const PROVIDER_LABELS: Record<ImageProvider, string> = {
+  'segmind-faceswap': 'Segmind FaceSwap (template, cheap)',
+  'nano-banana-redraw': 'Nano Banana Pro redraw (illustrated, needs Gemini key)',
+  'qwen-edit': 'Qwen Image-Edit (template, fast)',
+  gemini: 'Google Gemini',
+  openai: 'OpenAI redraw (best quality, Diffrun-style)',
+  fal: 'Fal.ai (PuLID)',
+  'flux-kontext': 'FLUX.1 Kontext',
+  'openai-fal': 'OpenAI via fal (gpt-image-2)',
+  'flux-lora': 'FLUX LoRA (per-child)',
+};
+
 interface SiteSettings {
   paymentEnabled: boolean;
   razorpayLive: boolean;
@@ -24,16 +47,10 @@ interface SiteSettings {
   freeShippingThreshold: number;
   maxPreviewsPerDay: number;
   imageGenEnabled: boolean;
-  imageProvider:
-    | 'gemini'
-    | 'openai'
-    | 'fal'
-    | 'flux-kontext'
-    | 'openai-fal'
-    | 'flux-lora'
-    | 'qwen-edit'
-    | 'segmind-faceswap'
-    | 'nano-banana-redraw';
+  imageProvider: ImageProvider;
+  /** Per-stage overrides; '' = use imageProvider for that stage. */
+  previewImageProvider: '' | ImageProvider;
+  finalImageProvider: '' | ImageProvider;
   personalizationPrompt: string;
 }
 
@@ -47,6 +64,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   maxPreviewsPerDay: 5,
   imageGenEnabled: false,
   imageProvider: 'segmind-faceswap',
+  previewImageProvider: '',
+  finalImageProvider: '',
   personalizationPrompt: '',
 };
 
@@ -509,29 +528,55 @@ export default function SettingsPage() {
                     : 'border-gray-200 hover:bg-[hsl(var(--muted))]'
                 }`}
               >
-                {p === 'segmind-faceswap'
-                  ? 'Segmind FaceSwap (template, recommended)'
-                  : p === 'nano-banana-redraw'
-                    ? 'Nano Banana Pro redraw (illustrated, needs Gemini key)'
-                    : p === 'qwen-edit'
-                      ? 'Qwen Image-Edit (template, fast)'
-                    : p === 'gemini'
-                      ? 'Google Gemini'
-                      : p === 'openai'
-                        ? 'OpenAI'
-                        : p === 'fal'
-                          ? 'Fal.ai (PuLID)'
-                          : p === 'flux-kontext'
-                            ? 'FLUX.1 Kontext'
-                            : p === 'openai-fal'
-                              ? 'OpenAI via fal (gpt-image-2)'
-                              : 'FLUX LoRA (per-child)'}
+                {PROVIDER_LABELS[p]}
                 {settings.imageProvider === p && (
                   <CheckCircle className="ml-2 inline h-3.5 w-3.5" />
                 )}
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Per-stage provider overrides */}
+        <div className="grid gap-4 border-b py-4 sm:grid-cols-2">
+          {(
+            [
+              {
+                key: 'previewImageProvider',
+                label: 'Free preview provider',
+                hint: 'Used for the free 5-page preview. This is what converts visitors — match the paid quality if the budget allows.',
+              },
+              {
+                key: 'finalImageProvider',
+                label: 'Paid full-book provider',
+                hint: 'Used for the full book generated after purchase (PDF & print).',
+              },
+            ] as const
+          ).map(({ key, label, hint }) => (
+            <div key={key}>
+              <p className="mb-1 text-sm font-medium">{label}</p>
+              <p className="mb-2 text-xs text-[hsl(var(--muted-foreground))]">
+                {hint}
+              </p>
+              <select
+                value={settings[key]}
+                onChange={(e) =>
+                  updateSetting(key, e.target.value as '' | ImageProvider)
+                }
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">
+                  Same as Active Provider (
+                  {PROVIDER_LABELS[settings.imageProvider].split(' (')[0]})
+                </option>
+                {(Object.keys(PROVIDER_LABELS) as ImageProvider[]).map((p) => (
+                  <option key={p} value={p}>
+                    {PROVIDER_LABELS[p]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
         </div>
 
         {/* Face-swap / edit prompt override */}

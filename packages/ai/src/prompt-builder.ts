@@ -22,30 +22,47 @@ export function buildIllustrationPrompt(options: {
   return parts.join('\n');
 }
 
+/** Map the DB Gender enum (BOY/GIRL/PREFER_NOT_TO_SAY) to prompt-friendly words. */
+function genderWord(gender?: string): string | null {
+  const g = (gender || '').toUpperCase();
+  if (g === 'BOY' || g === 'MALE') return 'boy';
+  if (g === 'GIRL' || g === 'FEMALE') return 'girl';
+  return null;
+}
+
 /**
  * Edit-in-place personalization (best on OpenAI gpt-image-1, the model ChatGPT
  * uses). The model receives the finished template illustration as the FIRST
- * image and the child's photo(s) after it, and makes two edits: swap the cartoon
- * child's face to the real child, and change the name in the title text. The
- * template scene, style and layout are preserved exactly — only the face and
- * name change. This mirrors the manual ChatGPT flow that produced good results.
+ * image and the child's photo(s) after it. The template scene, style and layout
+ * are preserved; the child in the art is adapted to the real child.
  */
 export function buildPersonalizationEditPrompt(opts: {
   childName: string;
   /** Retained for API compatibility; text is overlaid separately, not drawn. */
   caption?: string;
+  gender?: string;
+  skinTone?: string;
+  hairColor?: string;
+  hasGlasses?: boolean;
 }): string {
-  // Keep this SHORT and direct. The owner proved in ChatGPT that a one-line
-  // request ("replace the face of the first photo with the face of the child in
-  // the second image") gives a recognisable, well-blended result — while every
-  // elaborate/verbose/"must be cartoon" version we tried either kept the template
-  // face or produced a generic child. gpt-image does face-replacement best with a
-  // minimal instruction; over-specifying dilutes it. Template is the FIRST image,
-  // child photo the SECOND (that's the order the orchestrator sends them). The
-  // childName is intentionally unused — the ChatGPT prompt that worked has no name.
-  void opts;
+  // Keep this SHORT and direct — the owner proved minimal instructions swap
+  // best; elaborate wording kept the template face or produced a generic child.
+  // Diffrun-parity change: the swap now covers the HAIR and the exact SKIN TONE
+  // too, not just the face oval. Face-only swaps kept the template child's hair
+  // (wrong for girls / different hairstyles) and drifted skin lighter — the two
+  // visible quality gaps vs Diffrun. Template is the FIRST image, child photo
+  // the SECOND (the order the orchestrator sends them).
+  const gw = genderWord(opts.gender);
+  const identityBits = [
+    'the same face shape and features',
+    'the exact same skin tone — never lighten or change the skin colour',
+    'the same hairstyle, hair length and hair colour',
+  ];
+  if (opts.hasGlasses) identityBits.push('the same glasses');
   return [
-    'Replace the face of the child in the FIRST image with the face of the child in the SECOND image.',
+    'Replace the face AND hair of the child in the FIRST image with the face and hair of the child in the SECOND image, keeping the face position.',
+    `Match the child in the SECOND image exactly: ${identityBits.join(', ')}.${gw ? ` The child is a ${gw}.` : ''}`,
+    "Redraw the new face and hair in the FIRST image's illustration style so they blend in seamlessly — illustrated, not a pasted photo.",
     'Keep everything else in the first image exactly the same — pose, body, clothing, scene, background, colours, lighting and art style.',
     'Do not add any text, letters or captions.',
   ].join('\n');
@@ -143,15 +160,23 @@ export function buildCharacterSheetPrompt(opts: {
  * extra identity anchors. The model replaces the template's child with the
  * character while leaving the hand-drawn scene, style and composition intact.
  */
-export function buildNanoBananaRedrawPrompt(): string {
-  // The owner's exact proven instruction (the ChatGPT/OpenAI flow that face-swaps
+export function buildNanoBananaRedrawPrompt(opts?: {
+  gender?: string;
+  hasGlasses?: boolean;
+}): string {
+  // The owner's proven instruction shape (the ChatGPT/OpenAI flow that face-swaps
   // across all poses). Nano Banana gets the template as the FIRST image and the
   // child's PHOTO as the SECOND image (set in the orchestrator — NOT a character
   // sheet), matching that flow. Kept minimal on purpose: elaborate "surgical /
   // do not redraw" wording made Nano Banana skip the swap on several pages.
+  // Diffrun-parity change: the swap covers HAIR and exact SKIN TONE too, so
+  // "hair" was removed from the keep-the-same list (face-only swaps kept the
+  // template child's hair and drifted skin lighter — the visible gaps vs Diffrun).
+  const gw = genderWord(opts?.gender);
   return [
-    'I want the face of the first photo replaced with the face of the child in the second image, retaining the face position as well.',
-    'Keep everything else in the first image exactly the same — pose, body, hair, clothing, scene, background, colours, lighting and art style.',
+    'I want the face and hair of the child in the first image replaced with the face and hair of the child in the second image, retaining the face position as well.',
+    `Match the second image exactly — the same skin tone (never lighten it), the same hairstyle, hair length and hair colour${opts?.hasGlasses ? ', the same glasses' : ''} — redrawn in the first image's art style.${gw ? ` The child is a ${gw}.` : ''}`,
+    'Keep everything else in the first image exactly the same — pose, body, clothing, scene, background, colours, lighting and art style.',
     'Do not add any text, letters or captions.',
   ].join('\n');
 }

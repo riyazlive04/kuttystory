@@ -374,7 +374,12 @@ async function generateAndStorePage(
       );
     }
     // Admin-set prompt (from settings) wins; else the built-in default.
-    prompt = customPrompt || buildNanoBananaRedrawPrompt();
+    prompt =
+      customPrompt ||
+      buildNanoBananaRedrawPrompt({
+        gender: book.child.gender,
+        hasGlasses: book.child.hasGlasses,
+      });
     referenceImages = [baseImage, ...childRefs];
   } else if (baseImage) {
     // Qwen-Image-Edit needs a much stricter edit instruction than the OpenAI/
@@ -388,6 +393,10 @@ async function generateAndStorePage(
           buildPersonalizationEditPrompt({
             childName: book.child.name,
             caption: captionEnglish,
+            gender: book.child.gender,
+            skinTone: book.child.skinTone || undefined,
+            hairColor: book.child.hairColor || undefined,
+            hasGlasses: book.child.hasGlasses,
           });
     // Template first (the image to edit), then the child's photo(s).
     referenceImages = [baseImage, ...childRefs];
@@ -613,8 +622,12 @@ export async function generateBookPages(
   } = opts;
 
   try {
+    // Preview and final book can run different providers (admin per-stage
+    // overrides; empty override = the single Active Provider for both).
     const { provider, apiKey, enabled } =
-      await settings.getActiveImageProviderConfig();
+      await settings.getActiveImageProviderConfig(
+        previewLimit != null ? 'preview' : 'final',
+      );
 
     if (!enabled || !apiKey) {
       throw new Error(
